@@ -11,44 +11,40 @@
 int main(int argc, char **argv) {
 
     char *server_name = "irc.cat.pdx.edu";
-    //in_port_t server_port = 6667;
+    in_port_t server_port = 6667;
 
     //Info for resolving DNS address
-    struct addrinfo *result;
-    struct addrinfo *result_iter;
+    struct addrinfo *query_result;
+    struct sockaddr_in *sockdata;
     int error;
 
     //Query DNS for hostname
-    error = getaddrinfo(server_name, NULL, NULL, &result);
+    error = getaddrinfo(server_name, NULL, NULL, &query_result);
 
     if(error != 0) {
 	fprintf(stderr, "Error resolving %s: %s\n", server_name, gai_strerror(error));
 	exit(1);
     }
 
-    //Iterate over all returned addresses
-    for(result_iter = result; 
-	    result_iter != NULL; 
-	    result_iter = result_iter->ai_next) {
+    sockdata = (struct sockaddr_in *)query_result->ai_addr;
+    sockdata->sin_port = htons(server_port);
 
-	struct sockaddr *current = result_iter->ai_addr;
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	switch(current->sa_family) {
-	    case AF_INET:
-		fprintf(stdout, "Received inet sockaddr\n");
-		struct sockaddr_in *curr_inet = (struct sockaddr_in *)current;
-		fprintf(stdout, "Resolved address: %s\n",
-			inet_ntoa(curr_inet->sin_addr));
-		break;
-	    case AF_INET6:
-		fprintf(stdout, "Received inet6 sockaddr\n");
-		break;
-	    default:
-		fprintf(stdout, "Unknown sa_family: %d\n",current->sa_family);
-	}
+    if(sock < 0) {
+	perror("socket()");
+	exit(1);
     }
 
-    freeaddrinfo(result);
+    //TODO clean this up
+    int connect_retn = connect(sock, (struct sockaddr *)sockdata, sizeof(*sockdata));
+    if(connect_retn != 0) {
+	perror("connect()");
+	exit(1);
+    }
+    puts("Connected\n");
+
+    freeaddrinfo(query_result);
     return 0;
 }
 
