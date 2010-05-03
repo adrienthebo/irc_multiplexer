@@ -1,11 +1,13 @@
 # Makefile
 CC=gcc
-CFLAGS=-g -Wall
+CFLAGS += -g -Wall
+LIBS += $(shell pkg-config --cflags --libs glib-2.0)
 
 .PHONY: all
 
-all: bot
-bot: bot.c
-	$(CC) $(CFLAGS) -o $@ $^
+all: main 
+main: main.c 
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 clean:
-	rm -f bot
+	rm -f main 
+
