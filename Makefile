@@ -9,9 +9,9 @@ all: bot
 bot: main.o irc_multiplexer.o
 	$(CC) $(CFLAGS) $(LIBS) -o $@ $^ 
 main.o: main.c irc_multiplexer.h
-	$(CC) $(CFLAGS) $(LIBS) -c $@ $< $(LIBS)
+	$(CC) $(CFLAGS) $(LIBS) -c $<
 irc_multiplexer.o: irc_multiplexer.c irc_multiplexer.h
-	$(CC) $(CFLAGS) $(LIBS) -c $@ $< $(LIBS)
+	$(CC) $(CFLAGS) $(LIBS) -c $<
 clean:
 	rm -f bot main.o irc_multiplexer.o
 
