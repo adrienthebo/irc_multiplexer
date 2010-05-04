@@ -14,8 +14,8 @@
 typedef struct irc_multiplexer_struct {
 
     //Describe the server we're talking to
-    char *irc_server;
-    in_port_t irc_port;
+    char *server;
+    in_port_t port;
 
     //Address for clients to connect to
     char *unix_socket_path;

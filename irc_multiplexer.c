@@ -83,13 +83,11 @@ int get_listen_socket(irc_multiplexer *this, char *socket_path) {
 
 int process(irc_multiplexer *this) {
 
-    int irc_socket = get_irc_socket(this, "irc.cat.pdx.edu", 6667);
-    int listen_socket = get_listen_socket(this, "/tmp/ircbot.sock");
 
     //Get recv buffer size
     unsigned int rcvbuf;
     unsigned int rcvbuf_len = sizeof(rcvbuf);
-    getsockopt(irc_socket, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbuf_len);
+    getsockopt(this->server_socket, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbuf_len);
     char buf[rcvbuf];
     printf("Socket buffer size: %d\n", rcvbuf);
 
@@ -97,8 +95,8 @@ int process(irc_multiplexer *this) {
     while(1) {
 	//Initialize read fd_set
 	FD_ZERO(&readfds);
-	FD_SET(irc_socket, &readfds);
-	FD_SET(listen_socket, &readfds);
+	FD_SET(this->server_socket, &readfds);
+	//FD_SET(this->unix_socket, &readfds);
 
 	//Zero out buffer
 	memset(buf, 0, rcvbuf);
@@ -108,17 +106,19 @@ int process(irc_multiplexer *this) {
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
 
-	if(select(irc_socket + 1, &readfds, NULL, NULL, &timeout) == 0) {
+	if(select(this->server_socket + 1, &readfds, NULL, NULL, &timeout) == 0) {
 	    fputc('.', stdout);
 	    fflush(stdout);
 	}
-	else if(FD_ISSET(irc_socket, &readfds)) {
-	    recv(irc_socket, buf, rcvbuf_len - 1, 0);
+	else if(FD_ISSET(this->server_socket, &readfds)) {
+	    recv(this->server_socket, buf, rcvbuf_len - 1, 0);
 	    fputs(buf, stdout);
 	}
-	else if(FD_ISSET(listen_socket, &readfds)) {
+	/*
+	else if(FD_ISSET(this->unix_socket, &readfds)) {
 	    fputs("BAZINGA!", stdout);
 	}
+	*/
     }
     
     return 0;
