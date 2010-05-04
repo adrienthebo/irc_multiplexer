@@ -18,7 +18,7 @@
 #include <glib.h>
 #include "irc_multiplexer.h"
 
-int get_irc_socket(irc_multiplexer *this, const char *server_name, in_port_t server_port) {
+int set_irc_server(irc_multiplexer *this, const char *server_name, in_port_t server_port) {
 
     //Info for resolving DNS address
     struct addrinfo *query_result;
@@ -52,10 +52,11 @@ int get_irc_socket(irc_multiplexer *this, const char *server_name, in_port_t ser
 
     freeaddrinfo(query_result);
     puts("Connected\n");
+    this->server_socket = sock;
     return sock;
 }
 
-int get_listen_socket(irc_multiplexer *this, char *socket_path) {
+int set_local_socket(irc_multiplexer *this, char *socket_path) {
 
     //Prep sockaddr struct
     struct sockaddr_un unix_socket;
@@ -78,11 +79,11 @@ int get_listen_socket(irc_multiplexer *this, char *socket_path) {
 		unix_socket.sun_family, AF_UNIX);
 	exit(1);
     }
+    this->unix_socket = sock;
     return sock;
 }
 
 int process(irc_multiplexer *this) {
-
 
     //Get recv buffer size
     unsigned int rcvbuf;
@@ -114,11 +115,9 @@ int process(irc_multiplexer *this) {
 	    recv(this->server_socket, buf, rcvbuf_len - 1, 0);
 	    fputs(buf, stdout);
 	}
-	/*
 	else if(FD_ISSET(this->unix_socket, &readfds)) {
 	    fputs("BAZINGA!", stdout);
 	}
-	*/
     }
     
     return 0;

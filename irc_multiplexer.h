@@ -26,8 +26,8 @@ typedef struct irc_multiplexer_struct {
     GList *client_sockets;
 } irc_multiplexer;
 
-int get_irc_socket(irc_multiplexer *mux, const char *server_name, in_port_t server_port);
-int get_listen_socket(irc_multiplexer *mux, char *socket_path);
+int set_irc_server(irc_multiplexer *mux, const char *server_name, in_port_t server_port);
+int set_local_socket(irc_multiplexer *mux, char *socket_path);
 int process(irc_multiplexer *mux);
 #endif /* _IRC_MULTIPLEXER_H */
 

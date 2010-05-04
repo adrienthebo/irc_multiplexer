@@ -9,8 +9,8 @@ int main(int argc, char **argv) {
     catirc.server = "irc.cat.pdx.edu";
     catirc.port = 6667;
     
-    catirc.server_socket = get_irc_socket(&catirc, "irc.cat.pdx.edu", 6667);
-    catirc.unix_socket = get_listen_socket(&catirc, "/tmp/ircbot.sock");
+    set_irc_server(&catirc, "irc.cat.pdx.edu", 6667);
+    set_local_socket(&catirc, "/tmp/ircbot.sock");
 
     process(&catirc);
 
