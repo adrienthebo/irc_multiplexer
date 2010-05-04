@@ -15,8 +15,8 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <glib.h>
 #include "irc_multiplexer.h"
-
 
 int get_irc_socket(irc_multiplexer *this, const char *server_name, in_port_t server_port) {
 
@@ -55,7 +55,7 @@ int get_irc_socket(irc_multiplexer *this, const char *server_name, in_port_t ser
     return sock;
 }
 
-int get_listen_socket(char *socket_path) {
+int get_listen_socket(irc_multiplexer *this, char *socket_path) {
 
     //Prep sockaddr struct
     struct sockaddr_un unix_socket;
@@ -81,12 +81,10 @@ int get_listen_socket(char *socket_path) {
     return sock;
 }
 
-int main(int argc, char **argv) {
+int process(irc_multiplexer *this) {
 
-    irc_multiplexer catirc;
-   
-    int irc_socket = get_irc_socket(&catirc, "irc.cat.pdx.edu", 6667);
-    int listen_socket = get_listen_socket("/tmp/ircbot.sock");
+    int irc_socket = get_irc_socket(this, "irc.cat.pdx.edu", 6667);
+    int listen_socket = get_listen_socket(this, "/tmp/ircbot.sock");
 
     //Get recv buffer size
     unsigned int rcvbuf;

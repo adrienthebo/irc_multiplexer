@@ -8,6 +8,7 @@
 #ifndef _IRC_MULTIPLEXER_H
 #define _IRC_MULTIPLEXER_H
 
+#include <arpa/inet.h>
 #include <glib.h>
 
 typedef struct irc_multiplexer_struct {
@@ -27,6 +28,6 @@ typedef struct irc_multiplexer_struct {
 
 int get_irc_socket(irc_multiplexer *mux, const char *server_name, in_port_t server_port);
 int get_listen_socket(irc_multiplexer *mux, char *socket_path);
-
+int process(irc_multiplexer *mux);
 #endif /* _IRC_MULTIPLEXER_H */
 
