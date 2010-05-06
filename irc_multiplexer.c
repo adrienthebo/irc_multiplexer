@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -57,6 +58,18 @@ int set_irc_server(irc_multiplexer *this, const char *server_name, in_port_t ser
 }
 
 int set_local_socket(irc_multiplexer *this, char *socket_path) {
+
+    //Remove existing socket if it exists
+    struct stat socket_stat;
+    int error = stat(socket_path, &socket_stat);
+    if(error == 0 && S_ISSOCK(socket_stat.st_mode)) {
+	fprintf(stderr, "Notice: Removing old socket %s\n", socket_path);
+	unlink(socket_path);
+    }
+    else if(error == 0) {
+	fprintf(stderr, "Error, %s already exists and is not a socket. Exiting.\n", socket_path);
+	exit(1);
+    }
 
     //Prep sockaddr struct
     struct sockaddr_un unix_socket;
@@ -116,7 +129,7 @@ int process(irc_multiplexer *this) {
 	    fputs(buf, stdout);
 	}
 	else if(FD_ISSET(this->unix_socket, &readfds)) {
-	    fputs("BAZINGA!", stdout);
+	    fputs("Received client connection on local socket", stdout);
 	}
     }
     
