@@ -24,6 +24,13 @@ typedef struct irc_multiplexer_struct {
     int server_socket;
     int unix_socket;
     GList *client_sockets;
+
+    //Identity info
+    char *nick;
+    char *username;
+    char *realname;
+    char *hostname;
+    char *servername;
 } irc_multiplexer;
 
 int set_irc_server(irc_multiplexer *mux, const char *server_name, in_port_t server_port);
