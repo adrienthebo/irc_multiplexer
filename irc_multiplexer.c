@@ -16,7 +16,6 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <glib.h>
 #include "irc_multiplexer.h"
 
 int set_irc_server(irc_multiplexer *this, const char *server_name, in_port_t server_port) {
@@ -52,7 +51,7 @@ int set_irc_server(irc_multiplexer *this, const char *server_name, in_port_t ser
     }
 
     freeaddrinfo(query_result);
-    puts("Connected\n");
+    puts("Connected");
     this->server_socket = sock;
     return sock;
 }
@@ -63,7 +62,9 @@ int set_local_socket(irc_multiplexer *this, char *socket_path) {
     struct stat socket_stat;
     int error = stat(socket_path, &socket_stat);
     if(error == 0 && S_ISSOCK(socket_stat.st_mode)) {
+#ifdef DEBUG
 	fprintf(stderr, "Notice: Removing old socket %s\n", socket_path);
+#endif
 	unlink(socket_path);
     }
     else if(error == 0) {
@@ -72,9 +73,9 @@ int set_local_socket(irc_multiplexer *this, char *socket_path) {
     }
 
     //Prep sockaddr struct
-    struct sockaddr_un unix_socket;
-    strcpy(unix_socket.sun_path, socket_path);
-    unix_socket.sun_family = AF_UNIX;
+    struct sockaddr_un listen_socket;
+    strcpy(listen_socket.sun_path, socket_path);
+    listen_socket.sun_family = AF_UNIX;
 
     //Establish and bind socket
     int sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -82,57 +83,87 @@ int set_local_socket(irc_multiplexer *this, char *socket_path) {
 	perror("socket()");
 	exit(1);
     }
-    else {
-	printf("socket fd: %d\n", sock);
-    }
-    if(bind(sock, (struct sockaddr *) &unix_socket, sizeof(unix_socket)) != 0) {
+
+    if(bind(sock, (struct sockaddr *) &listen_socket, sizeof(listen_socket)) != 0) {
 	perror("bind()");
 	fprintf(stdout, "errno: %d, EINVAL: %d\n", errno, EINVAL);
-	fprintf(stdout, "unix_socket.sun_family: %d, AF_UNIX: %d\n", 
-		unix_socket.sun_family, AF_UNIX);
+	fprintf(stdout, "listen_socket.sun_family: %d, AF_UNIX: %d\n", 
+		listen_socket.sun_family, AF_UNIX);
 	exit(1);
     }
-    this->unix_socket = sock;
+    this->listen_socket = sock;
+    listen(sock, 100000);
     return sock;
+}
+
+int accept_socket(irc_multiplexer *this) {
+    if(this->client_sockets == NULL) {
+	this->client_sockets = malloc(sizeof(client_socket));
+    }
+    else {
+	client_socket *new_socket = malloc(sizeof(client_socket));
+	new_socket->next = this->client_sockets;
+	this->client_sockets = new_socket;
+    }
+
+    this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
+    return 0;
 }
 
 int process(irc_multiplexer *this) {
 
-    //Get recv buffer size
+    /* We need to retrieve the size of the socket buffer so that we can 
+     * allocate enough space for our local buffer. Retrieving less than the
+     * entire buffer will truncate the message, and that is baaaad.
+     */
     unsigned int rcvbuf;
     unsigned int rcvbuf_len = sizeof(rcvbuf);
     getsockopt(this->server_socket, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbuf_len);
-    char buf[rcvbuf];
-    printf("Socket buffer size: %d\n", rcvbuf);
-
-    fd_set readfds;
-    while(1) {
-	//Initialize read fd_set
-	FD_ZERO(&readfds);
-	FD_SET(this->server_socket, &readfds);
-	//FD_SET(this->unix_socket, &readfds);
-
-	//Zero out buffer
-	memset(buf, 0, rcvbuf);
-
-	//Initialize timeout
-	struct timeval timeout;
-	timeout.tv_sec = 1;
-	timeout.tv_usec = 0;
-
-	if(select(this->server_socket + 1, &readfds, NULL, NULL, &timeout) == 0) {
-	    fputc('.', stdout);
-	    fflush(stdout);
-	}
-	else if(FD_ISSET(this->server_socket, &readfds)) {
-	    recv(this->server_socket, buf, rcvbuf_len - 1, 0);
-	    fputs(buf, stdout);
-	}
-	else if(FD_ISSET(this->unix_socket, &readfds)) {
-	    fputs("Received client connection on local socket", stdout);
-	}
-    }
     
+    //Prep recv buffer
+    char buf[rcvbuf];
+    memset(buf, 0, rcvbuf);
+
+    //Initialize read fd_set
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(this->server_socket, &readfds);
+    FD_SET(this->listen_socket, &readfds);
+
+    //Find the highest file descriptor for select
+    int nfds = 0;
+    if( nfds < this->server_socket) nfds = this->server_socket;
+    if( nfds < this->listen_socket) nfds = this->listen_socket;
+
+    for(client_socket *current = this->client_sockets;
+	    current != NULL;
+	    current = current->next ) {
+#ifdef DEBUG
+	fprintf(stderr, "client fd: %d\n", current->fd);
+#endif /* DEBUG */
+	if(nfds < current->fd) nfds = current->fd;
+	FD_SET(current->fd, &readfds);
+    }
+
+    //Initialize timeout
+    struct timeval timeout;
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &timeout);
+    if(ready_fds == 0) {
+	fputc('.', stdout);
+	fflush(stdout);
+    }
+    else if(FD_ISSET(this->server_socket, &readfds)) {
+	recv(this->server_socket, buf, rcvbuf_len - 1, 0);
+	fputs(buf, stdout);
+	//TODO forward message to all listening clients
+    }
+    else if(FD_ISSET(this->listen_socket, &readfds)) {
+	fputs("Received client connection on local socket", stdout);
+	accept_socket(this);
+    }
+    // else one of our clients sent a message
     return 0;
 }
-

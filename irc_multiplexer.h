@@ -8,8 +8,13 @@
 #ifndef _IRC_MULTIPLEXER_H
 #define _IRC_MULTIPLEXER_H
 
+#include <stdlib.h>
 #include <arpa/inet.h>
-#include <glib.h>
+
+typedef struct client_socket_struct {
+    int fd;
+    struct client_socket_struct *next;
+} client_socket;
 
 typedef struct irc_multiplexer_struct {
 
@@ -18,12 +23,15 @@ typedef struct irc_multiplexer_struct {
     in_port_t port;
 
     //Address for clients to connect to
-    char *unix_socket_path;
+    char *listen_socket_path;
 
-    //fds to read from
+    //IRC socket
     int server_socket;
-    int unix_socket;
-    GList *client_sockets;
+    unsigned int rcvbuf;
+    unsigned int rcvbuf_len;
+
+    int listen_socket;
+    client_socket *client_sockets;
 
     //Identity info
     char *nick;
