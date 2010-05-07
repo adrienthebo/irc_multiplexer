@@ -29,6 +29,7 @@ typedef struct irc_multiplexer_struct {
     int server_socket;
     unsigned int rcvbuf;
     unsigned int rcvbuf_len;
+    char *line_buffer;
 
     int listen_socket;
     client_socket *client_sockets;
@@ -43,6 +44,6 @@ typedef struct irc_multiplexer_struct {
 
 void set_irc_server(irc_multiplexer *mux, char *server_name, in_port_t server_port);
 void set_local_socket(irc_multiplexer *mux, char *socket_path);
-void process(irc_multiplexer *mux);
+void start_server(irc_multiplexer *mux);
 #endif /* _IRC_MULTIPLEXER_H */
 

@@ -131,40 +131,40 @@ void parse_message(irc_multiplexer *this, char *message) {
 }
 
 void start_server(irc_multiplexer *this) {
-    
-    //Prep recv buffer
+
     char buf[this->rcvbuf];
-    memset(buf, 0, this->rcvbuf);
-
-    //Initialize read fd_set
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(this->server_socket, &readfds);
-    FD_SET(this->listen_socket, &readfds);
-
-    //Find the highest file descriptor for select
-    int nfds = 0;
-    if( nfds < this->server_socket) nfds = this->server_socket;
-    if( nfds < this->listen_socket) nfds = this->listen_socket;
-
-    //Load all the client sockets
-    for(client_socket *current = this->client_sockets;
-	    current != NULL;
-	    current = current->next ) {
-	#ifdef DEBUG
-	fprintf(stderr, "client fd: %d\n", current->fd);
-	#endif /* DEBUG */
-	if(nfds < current->fd) nfds = current->fd;
-	FD_SET(current->fd, &readfds);
-    }
-
-    //Initialize timeout
-    struct timeval timeout;
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-
-    //Begin main execution
     while(1) {
+	
+	//Prep recv buffer
+	memset(buf, 0, this->rcvbuf);
+
+	//Initialize read fd_set
+	fd_set readfds;
+	FD_ZERO(&readfds);
+	FD_SET(this->server_socket, &readfds);
+	FD_SET(this->listen_socket, &readfds);
+
+	//Find the highest file descriptor for select
+	int nfds = 0;
+	if( nfds < this->server_socket) nfds = this->server_socket;
+	if( nfds < this->listen_socket) nfds = this->listen_socket;
+
+	//Load all the client sockets
+	for(client_socket *current = this->client_sockets;
+		current != NULL;
+		current = current->next ) {
+	    #ifdef DEBUG
+	    fprintf(stderr, "client fd: %d\n", current->fd);
+	    #endif /* DEBUG */
+	    if(nfds < current->fd) nfds = current->fd;
+	    FD_SET(current->fd, &readfds);
+	}
+
+	//Initialize timeout
+	struct timeval timeout;
+	timeout.tv_sec = 1;
+	timeout.tv_usec = 0;
+
 	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &timeout);
 	if(ready_fds == 0) {
 	    fputc('.', stdout);
