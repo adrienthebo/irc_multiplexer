@@ -17,9 +17,7 @@ int main(int argc, char **argv) {
     catirc.servername = "*";
     catirc.client_sockets = NULL;
 
-    while(1) {
-	process(&catirc);
-    }
+    start_server(&catirc);
     return 0;
 }
 

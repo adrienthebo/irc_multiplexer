@@ -18,7 +18,10 @@
 #include <errno.h>
 #include "irc_multiplexer.h"
 
-int set_irc_server(irc_multiplexer *this, const char *server_name, in_port_t server_port) {
+void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_port) {
+
+    this->server = server_name;
+    this->port = server_port;
 
     //Info for resolving DNS address
     struct addrinfo *query_result;
@@ -34,7 +37,6 @@ int set_irc_server(irc_multiplexer *this, const char *server_name, in_port_t ser
 
     //Prep socket info
     sockdata = (struct sockaddr_in *)query_result->ai_addr;
-    //memcpy(sockdata, query_result->ai_addr, sizeof(struct sockaddr));
     sockdata->sin_port = htons(server_port);
 
     //Generate socket
@@ -44,19 +46,29 @@ int set_irc_server(irc_multiplexer *this, const char *server_name, in_port_t ser
 	exit(1);
     }
 
-    //Establish connection
+    //Establish connection to IRC server
     if(connect(sock, (struct sockaddr *)sockdata, sizeof(*sockdata)) != 0 ) {
 	perror("connect()");
 	exit(1);
     }
 
     freeaddrinfo(query_result);
-    puts("Connected");
+
+    /* We need to retrieve the size of the socket buffer so that we can 
+     * allocate enough space for our local buffer. Retrieving less than the
+     * entire buffer will truncate the message, and that is baaaad.
+     */
     this->server_socket = sock;
-    return sock;
+    getsockopt(this->server_socket, SOL_SOCKET, SO_RCVBUF, 
+	    &(this->rcvbuf), &(this->rcvbuf_len));
+
+    #ifdef DEBUG
+    fprintf(stderr, "Connected to %s:%d\n", this->server, this->port);
+    #endif /* DEBUG */
+
 }
 
-int set_local_socket(irc_multiplexer *this, char *socket_path) {
+void set_local_socket(irc_multiplexer *this, char *socket_path) {
 
     //Remove existing socket if it exists
     struct stat socket_stat;
@@ -83,7 +95,6 @@ int set_local_socket(irc_multiplexer *this, char *socket_path) {
 	perror("socket()");
 	exit(1);
     }
-
     if(bind(sock, (struct sockaddr *) &listen_socket, sizeof(listen_socket)) != 0) {
 	perror("bind()");
 	fprintf(stdout, "errno: %d, EINVAL: %d\n", errno, EINVAL);
@@ -91,12 +102,13 @@ int set_local_socket(irc_multiplexer *this, char *socket_path) {
 		listen_socket.sun_family, AF_UNIX);
 	exit(1);
     }
+
     this->listen_socket = sock;
+    //Listen for lots and lots of connections, and accept them ALL.
     listen(sock, 100000);
-    return sock;
 }
 
-int accept_socket(irc_multiplexer *this) {
+void accept_socket(irc_multiplexer *this) {
     if(this->client_sockets == NULL) {
 	this->client_sockets = malloc(sizeof(client_socket));
     }
@@ -107,22 +119,22 @@ int accept_socket(irc_multiplexer *this) {
     }
 
     this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
-    return 0;
 }
 
-int process(irc_multiplexer *this) {
+void parse_message(irc_multiplexer *this, char *message) {
+    char *temp = malloc(strlen(message) + 1);
+    char *backup = temp;
 
-    /* We need to retrieve the size of the socket buffer so that we can 
-     * allocate enough space for our local buffer. Retrieving less than the
-     * entire buffer will truncate the message, and that is baaaad.
-     */
-    unsigned int rcvbuf;
-    unsigned int rcvbuf_len = sizeof(rcvbuf);
-    getsockopt(this->server_socket, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbuf_len);
+    char *hostname = strtok(temp, " ");
+
+    free(backup);
+}
+
+void start_server(irc_multiplexer *this) {
     
     //Prep recv buffer
-    char buf[rcvbuf];
-    memset(buf, 0, rcvbuf);
+    char buf[this->rcvbuf];
+    memset(buf, 0, this->rcvbuf);
 
     //Initialize read fd_set
     fd_set readfds;
@@ -135,12 +147,13 @@ int process(irc_multiplexer *this) {
     if( nfds < this->server_socket) nfds = this->server_socket;
     if( nfds < this->listen_socket) nfds = this->listen_socket;
 
+    //Load all the client sockets
     for(client_socket *current = this->client_sockets;
 	    current != NULL;
 	    current = current->next ) {
-#ifdef DEBUG
+	#ifdef DEBUG
 	fprintf(stderr, "client fd: %d\n", current->fd);
-#endif /* DEBUG */
+	#endif /* DEBUG */
 	if(nfds < current->fd) nfds = current->fd;
 	FD_SET(current->fd, &readfds);
     }
@@ -150,20 +163,29 @@ int process(irc_multiplexer *this) {
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
 
-    int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &timeout);
-    if(ready_fds == 0) {
-	fputc('.', stdout);
-	fflush(stdout);
+    //Begin main execution
+    while(1) {
+	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &timeout);
+	if(ready_fds == 0) {
+	    fputc('.', stdout);
+	    fflush(stdout);
+	}
+	else if(FD_ISSET(this->server_socket, &readfds)) {
+	    recv(this->server_socket, buf, this->rcvbuf_len - 1, 0);
+	    fputs(buf, stdout);
+	    for(int i = 0; i <= strlen(buf); i++) {
+		if(buf[i] == '\n') {
+		    fprintf(stdout, "HOLY FUCKING SHIT");
+		}
+	    }
+	    //parse_message(this, buf);
+	    //TODO forward message to all listening clients
+	}
+	else if(FD_ISSET(this->listen_socket, &readfds)) {
+	    fputs("Received client connection on local socket", stdout);
+	    accept_socket(this);
+	}
+	// else one of our clients sent a message
     }
-    else if(FD_ISSET(this->server_socket, &readfds)) {
-	recv(this->server_socket, buf, rcvbuf_len - 1, 0);
-	fputs(buf, stdout);
-	//TODO forward message to all listening clients
-    }
-    else if(FD_ISSET(this->listen_socket, &readfds)) {
-	fputs("Received client connection on local socket", stdout);
-	accept_socket(this);
-    }
-    // else one of our clients sent a message
-    return 0;
 }
+
