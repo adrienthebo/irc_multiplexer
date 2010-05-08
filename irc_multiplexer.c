@@ -65,6 +65,7 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
 
     #ifdef DEBUG
     fprintf(stderr, "Connected to %s:%d\n", this->server, this->port);
+    fprintf(stderr, "rcbuf_len: %d\n", this->rcvbuf_len);
     #endif /* DEBUG */
 
 }
@@ -75,9 +76,9 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
     struct stat socket_stat;
     int error = stat(socket_path, &socket_stat);
     if(error == 0 && S_ISSOCK(socket_stat.st_mode)) {
-#ifdef DEBUG
+    #ifdef DEBUG
 	fprintf(stderr, "Notice: Removing old socket %s\n", socket_path);
-#endif
+    #endif
 	unlink(socket_path);
     }
     else if(error == 0) {
@@ -135,7 +136,6 @@ void parse_message(irc_multiplexer *this, char *message) {
 }
 
 void start_server(irc_multiplexer *this) {
-    printf("Pointer: %p\n", this);
     char buf[this->rcvbuf];
     while(1) {
 	//Prep recv buffer
@@ -159,7 +159,9 @@ void start_server(irc_multiplexer *this) {
 	    #ifdef DEBUG
 	    fprintf(stderr, "client fd: %d\n", current->fd);
 	    #endif /* DEBUG */
+	    //Locate highest fd for select()
 	    if(nfds < current->fd) nfds = current->fd;
+	    //Add client fd to listen sockets
 	    FD_SET(current->fd, &readfds);
 	}
 
@@ -177,11 +179,15 @@ void start_server(irc_multiplexer *this) {
 	else if(FD_ISSET(this->server_socket, &readfds)) {
 	    recv(this->server_socket, buf, this->rcvbuf_len - 1, 0);
 	    fputs(buf, stdout);
+
+	    #ifdef DEBUG
 	    for(int i = 0; i <= strlen(buf); i++) {
 		if(buf[i] == '\n') {
-		    fprintf(stdout, "HOLY FUCKING SHIT");
+		    fprintf(stdout, "Detected newline!\n");
 		}
 	    }
+
+	    #endif /* DEBUG */
 	    //parse_message(this, buf);
 	    //TODO forward message to all listening clients
 	}
