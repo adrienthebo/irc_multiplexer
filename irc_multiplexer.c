@@ -59,6 +59,7 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
      * entire buffer will truncate the message, and that is baaaad.
      */
     this->server_socket = sock;
+    this->rcvbuf_len = sizeof(this->rcvbuf);
     getsockopt(this->server_socket, SOL_SOCKET, SO_RCVBUF, 
 	    &(this->rcvbuf), &(this->rcvbuf_len));
 
@@ -97,9 +98,11 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
     }
     if(bind(sock, (struct sockaddr *) &listen_socket, sizeof(listen_socket)) != 0) {
 	perror("bind()");
+	#ifdef DEBUG
 	fprintf(stdout, "errno: %d, EINVAL: %d\n", errno, EINVAL);
 	fprintf(stdout, "listen_socket.sun_family: %d, AF_UNIX: %d\n", 
 		listen_socket.sun_family, AF_UNIX);
+	#endif /* DEBUG */
 	exit(1);
     }
 
@@ -126,15 +129,15 @@ void parse_message(irc_multiplexer *this, char *message) {
     char *backup = temp;
 
     char *hostname = strtok(temp, " ");
+    //fprintf(stdout, "Hostname: %s\n", hostname);
 
     free(backup);
 }
 
 void start_server(irc_multiplexer *this) {
-
+    printf("Pointer: %p\n", this);
     char buf[this->rcvbuf];
     while(1) {
-	
 	//Prep recv buffer
 	memset(buf, 0, this->rcvbuf);
 
@@ -165,6 +168,7 @@ void start_server(irc_multiplexer *this) {
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
 
+	//Begin main execution
 	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &timeout);
 	if(ready_fds == 0) {
 	    fputc('.', stdout);
