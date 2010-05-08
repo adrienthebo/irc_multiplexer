@@ -125,14 +125,28 @@ void accept_socket(irc_multiplexer *this) {
     this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
 }
 
-void parse_message(irc_multiplexer *this, char *message) {
-    char *temp = malloc(strlen(message) + 1);
+void parse_message(irc_multiplexer *this, char *msg) {
+    char *temp = malloc(strlen(msg) + 1);
     char *backup = temp;
 
     char *hostname = strtok(temp, " ");
     //fprintf(stdout, "Hostname: %s\n", hostname);
 
     free(backup);
+}
+
+void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
+    fputs(msg_fragment, stdout);
+
+    #ifdef DEBUG
+    for(int i = 0; i <= strlen(msg_fragment); i++) {
+	if(msg_fragment[i] == '\n') {
+	    fprintf(stdout, "Detected newline!\n");
+	}
+    }
+    #endif /* DEBUG */
+
+    //TODO forward message to all listening clients
 }
 
 void start_server(irc_multiplexer *this) {
@@ -156,9 +170,11 @@ void start_server(irc_multiplexer *this) {
 	for(client_socket *current = this->client_sockets;
 		current != NULL;
 		current = current->next ) {
+
 	    #ifdef DEBUG
 	    fprintf(stderr, "client fd: %d\n", current->fd);
 	    #endif /* DEBUG */
+
 	    //Locate highest fd for select()
 	    if(nfds < current->fd) nfds = current->fd;
 	    //Add client fd to listen sockets
@@ -178,24 +194,14 @@ void start_server(irc_multiplexer *this) {
 	}
 	else if(FD_ISSET(this->server_socket, &readfds)) {
 	    recv(this->server_socket, buf, this->rcvbuf_len - 1, 0);
-	    fputs(buf, stdout);
-
-	    #ifdef DEBUG
-	    for(int i = 0; i <= strlen(buf); i++) {
-		if(buf[i] == '\n') {
-		    fprintf(stdout, "Detected newline!\n");
-		}
-	    }
-
-	    #endif /* DEBUG */
-	    //parse_message(this, buf);
-	    //TODO forward message to all listening clients
+	    handle_incoming_message(this, buf);
 	}
 	else if(FD_ISSET(this->listen_socket, &readfds)) {
 	    fputs("Received client connection on local socket", stdout);
 	    accept_socket(this);
 	}
 	// else one of our clients sent a message
+	//TODO forward message from client to server
     }
 }
 
