@@ -125,26 +125,48 @@ void accept_socket(irc_multiplexer *this) {
     this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
 }
 
-void parse_message(irc_multiplexer *this, char *msg) {
-    char *temp = malloc(strlen(msg) + 1);
-    char *backup = temp;
-
-    char *hostname = strtok(temp, " ");
-    //fprintf(stdout, "Hostname: %s\n", hostname);
-
-    free(backup);
-}
-
 void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
-    fputs(msg_fragment, stdout);
 
+    int has_newline = 0;
     #ifdef DEBUG
     for(int i = 0; i <= strlen(msg_fragment); i++) {
 	if(msg_fragment[i] == '\n') {
 	    fprintf(stdout, "Detected newline!\n");
+	    has_newline++;
 	}
     }
     #endif /* DEBUG */
+
+    /* We have no idea what recv is going to pass us, but we operate on 
+     * newline terminated strings. So, we need to concatenate them, and 
+     * then when we hit a newline we ship the line off.
+     */
+    if(this->line_buffer == NULL) {
+	//No previously stored line, initialize a persistent buffer
+	this->line_buffer = malloc(strlen(msg_fragment) + 1);
+	memset(this->line_buffer, 0, strlen(msg_fragment) + 1);
+	
+	strcpy(this->line_buffer, msg_fragment);
+    }
+    else if(has_newline) {
+	fputs("Found a newline and stupidly not acting\n", stderr);
+	fputs(this->line_buffer, stdout);
+	free(this->line_buffer);
+	this->line_buffer = NULL;
+    }
+    else {
+	char *new_line_buffer = malloc(strlen(msg_fragment) + 
+		strlen(this->line_buffer) + 1);
+	memset(new_line_buffer, 0, strlen(msg_fragment) + 
+		strlen(this->line_buffer) + 1);
+
+	strcat(new_line_buffer, this->line_buffer);
+	strcat(new_line_buffer, msg_fragment);
+
+	//free(this->line_buffer);
+	this->line_buffer = new_line_buffer;
+	fprintf(stdout, "%s\n", this->line_buffer);
+    }
 
     //TODO forward message to all listening clients
 }

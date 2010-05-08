@@ -27,7 +27,7 @@ typedef struct irc_multiplexer_struct {
 
     //IRC socket
     int server_socket;
-    unsigned int rcvbuf;
+    signed int rcvbuf;
     unsigned int rcvbuf_len;
     char *line_buffer;
 
