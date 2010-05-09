@@ -20,6 +20,7 @@
 
 void init_multiplexer(irc_multiplexer *this) {
     this->line_buffer = NULL;
+    this->client_sockets = NULL;
 }
 
 void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_port) {
@@ -131,34 +132,39 @@ void accept_socket(irc_multiplexer *this) {
 }
 
 void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
-
     int has_newline = 0;
-    #ifdef DEBUG
+
+    /* Scan fragment for a newline, to determine whether we can pipe our
+     * buffer to clients.
+     */
     for(int i = 0; i <= strlen(msg_fragment); i++) {
 	if(msg_fragment[i] == '\n') {
-	    fprintf(stdout, "Detected newline!\n");
 	    has_newline++;
 	}
     }
-    #endif /* DEBUG */
 
     /* We have no idea what recv is going to pass us, but we operate on 
      * newline terminated strings. So, we need to concatenate them, and 
      * then when we hit a newline we ship the line off.
      */
     if(this->line_buffer == NULL) {
-	//No previously stored line, initialize a persistent buffer
+	/* No previously stored line, initialize a persistent buffer and 
+	 * store the line there
+	 */
 	this->line_buffer = malloc(strlen(msg_fragment) + 1);
 	memset(this->line_buffer, 0, strlen(msg_fragment) + 1);
 	
 	strcpy(this->line_buffer, msg_fragment);
     }
     else if(has_newline) {
-	fputs(this->line_buffer, stdout);
-	free(this->line_buffer);
-	this->line_buffer = NULL;
-    }
-    else {
+	/* Current message fragment has a newline, we need to append up to 
+	 * the newline and then send it off.
+	 */
+
+	#ifdef DEBUG
+	fprintf(stderr, "Newline found, fragment: \"%s\"\n", msg_fragment);
+	#endif /* DEBUG */
+
 	char *new_line_buffer = malloc(strlen(msg_fragment) + 
 		strlen(this->line_buffer) + 1);
 	memset(new_line_buffer, 0, strlen(msg_fragment) + 
@@ -167,9 +173,35 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	strcat(new_line_buffer, this->line_buffer);
 	strcat(new_line_buffer, msg_fragment);
 
+	//TODO fix memory leak
 	//free(this->line_buffer);
 	this->line_buffer = new_line_buffer;
-	fprintf(stdout, "%s\n", this->line_buffer);
+	fputs(this->line_buffer, stdout);
+	#ifdef DEBUG
+	fprintf(stdout, "Detected newline!\n");
+	#endif /* DEBUG */
+	free(this->line_buffer);
+	this->line_buffer = NULL;
+    }
+    else {
+	/* We're still aggregating information into the line_buffer
+	 */
+
+	//Allocate new buffer that has room and zero it out
+	char *new_line_buffer = malloc(strlen(msg_fragment) + 
+		strlen(this->line_buffer) + 1);
+	memset(new_line_buffer, 0, strlen(msg_fragment) + 
+		strlen(this->line_buffer) + 1);
+
+	strcat(new_line_buffer, this->line_buffer);
+	strcat(new_line_buffer, msg_fragment);
+
+	free(this->line_buffer);
+	this->line_buffer = new_line_buffer;
+
+	#ifdef DEBUG
+	fprintf(stderr, "%s\n", this->line_buffer);
+	#endif /* DEBUG */
     }
 
     //TODO forward message to all listening clients
