@@ -18,6 +18,10 @@
 #include <errno.h>
 #include "irc_multiplexer.h"
 
+void init_multiplexer(irc_multiplexer *this) {
+    this->line_buffer = NULL;
+}
+
 void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_port) {
 
     this->server = server_name;
@@ -66,6 +70,7 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
     #ifdef DEBUG
     fprintf(stderr, "Connected to %s:%d\n", this->server, this->port);
     fprintf(stderr, "rcbuf_len: %d\n", this->rcvbuf_len);
+    fprintf(stderr, "rcbuf: %u\n", this->rcvbuf_len);
     #endif /* DEBUG */
 
 }
@@ -149,7 +154,6 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	strcpy(this->line_buffer, msg_fragment);
     }
     else if(has_newline) {
-	fputs("Found a newline and stupidly not acting\n", stderr);
 	fputs(this->line_buffer, stdout);
 	free(this->line_buffer);
 	this->line_buffer = NULL;

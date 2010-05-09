@@ -6,7 +6,7 @@
 int main(int argc, char **argv) {
 
     irc_multiplexer catirc;
-    
+    init_multiplexer(&catirc);
     set_irc_server(&catirc, "irc.cat.pdx.edu", 6667);
     set_local_socket(&catirc, "/tmp/ircbot.sock");
 
