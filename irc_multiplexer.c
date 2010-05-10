@@ -115,11 +115,6 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
     }
     if(bind(sock, (struct sockaddr *) &listen_socket, sizeof(listen_socket)) != 0) {
 	perror("bind()");
-	#ifdef DEBUG
-	fprintf(stderr, "errno: %d, EINVAL: %d\n", errno, EINVAL);
-	fprintf(stderr, "listen_socket.sun_family: %d, AF_UNIX: %d\n", 
-		listen_socket.sun_family, AF_UNIX);
-	#endif /* DEBUG */
 	exit(1);
     }
 
@@ -230,14 +225,8 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	}
     }
     else {
-	/* We're still aggregating information into the line_buffer
-	 */
-
+	//We're still aggregating information into the line_buffer
 	str_append(&(this->line_buffer), msg_fragment);
-
-	#ifdef DEBUG
-	fprintf(stderr, "line_buffer: %s\n", this->line_buffer);
-	#endif /* DEBUG */
     }
 }
 
