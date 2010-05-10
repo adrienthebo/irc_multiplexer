@@ -18,11 +18,18 @@
 #include <errno.h>
 #include "irc_multiplexer.h"
 
+/*
+ * Null out values that should be null, so we don't get madness and anarchy
+ * when uninitialized strings are used.
+ */
 void init_multiplexer(irc_multiplexer *this) {
     this->line_buffer = NULL;
     this->client_sockets = NULL;
 }
 
+/*
+ * Generates an AF_INET socket to the server and stores it
+ */
 void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_port) {
 
     this->server = server_name;
@@ -76,6 +83,9 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
 
 }
 
+/* 
+ * Generates and listens to a AF_UNIX socket
+ */
 void set_local_socket(irc_multiplexer *this, char *socket_path) {
 
     //Remove existing socket if it exists
@@ -118,6 +128,9 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
     listen(sock, 100000);
 }
 
+/* 
+ * Accepts a connection on the AF_UNIX socket
+ */
 void accept_socket(irc_multiplexer *this) {
     if(this->client_sockets == NULL) {
 	this->client_sockets = malloc(sizeof(client_socket));
@@ -131,6 +144,13 @@ void accept_socket(irc_multiplexer *this) {
     this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
 }
 
+/* 
+ * Allocates memory for the concatenation of two strings, frees the old
+ * string, and replaces the old string with the new string.
+ *
+ * TODO revisit this and think about how badly this would explode if a
+ * static string was inputted.
+ */
 void strn_append(char **old_str, char *append_str, size_t n) {
 
     int new_str_len = strlen(*old_str) + n;
@@ -144,10 +164,18 @@ void strn_append(char **old_str, char *append_str, size_t n) {
     *old_str = new_str;
 }
 
+/* 
+ * Calls strn_append to append the entire append_str.
+ */
 void str_append(char **old_str, char *append_str) {
     strn_append(old_str, append_str, strlen(append_str));
 }
 
+/*
+ * Handles incoming message fragments received from the server socket.
+ * Concatenates and appends when necessary, and should send complete
+ * strings off to listening sockets.
+ */
 void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
     int newline_pos = -1;
 
@@ -189,6 +217,7 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	fprintf(stdout, "Received line ");
 	#endif /* DEBUG */
 	fputs(this->line_buffer, stdout);
+	//TODO do something useful with a complete line
 
 	int excess_str = strlen(msg_fragment) - newline_pos;
 	if(excess_str > 0) {
@@ -212,6 +241,10 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
     }
 }
 
+/* 
+ * Kicks off a while loop to handle all input from all sockets in every
+ * direction, evar.
+ */
 void start_server(irc_multiplexer *this) {
     char buf[this->rcvbuf];
     while(1) {
@@ -245,12 +278,11 @@ void start_server(irc_multiplexer *this) {
 	}
 
 	//Initialize timeout
-	struct timeval timeout;
-	timeout.tv_sec = 1;
-	timeout.tv_usec = 0;
+	this->timeout.tv_sec = 1;
+	this->timeout.tv_usec = 0;
 
 	//Begin main execution
-	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &timeout);
+	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &(this->timeout));
 	if(ready_fds == 0) {
 	    fputc('.', stdout);
 	    fflush(stdout);
