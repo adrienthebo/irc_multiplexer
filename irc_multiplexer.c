@@ -106,8 +106,8 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
     if(bind(sock, (struct sockaddr *) &listen_socket, sizeof(listen_socket)) != 0) {
 	perror("bind()");
 	#ifdef DEBUG
-	fprintf(stdout, "errno: %d, EINVAL: %d\n", errno, EINVAL);
-	fprintf(stdout, "listen_socket.sun_family: %d, AF_UNIX: %d\n", 
+	fprintf(stderr, "errno: %d, EINVAL: %d\n", errno, EINVAL);
+	fprintf(stderr, "listen_socket.sun_family: %d, AF_UNIX: %d\n", 
 		listen_socket.sun_family, AF_UNIX);
 	#endif /* DEBUG */
 	exit(1);
@@ -132,14 +132,15 @@ void accept_socket(irc_multiplexer *this) {
 }
 
 void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
-    int has_newline = 0;
+    int newline_pos = -1;
 
     /* Scan fragment for a newline, to determine whether we can pipe our
      * buffer to clients.
      */
     for(int i = 0; i <= strlen(msg_fragment); i++) {
 	if(msg_fragment[i] == '\n') {
-	    has_newline++;
+	    newline_pos = i;
+	    break;
 	}
     }
 
@@ -156,7 +157,7 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	
 	strcpy(this->line_buffer, msg_fragment);
     }
-    else if(has_newline) {
+    else if(newline_pos != -1) {
 	/* Current message fragment has a newline, we need to append up to 
 	 * the newline and then send it off.
 	 */
@@ -173,14 +174,11 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	strcat(new_line_buffer, this->line_buffer);
 	strcat(new_line_buffer, msg_fragment);
 
-	//TODO fix memory leak
-	//free(this->line_buffer);
-	this->line_buffer = new_line_buffer;
-	fputs(this->line_buffer, stdout);
-	#ifdef DEBUG
-	fprintf(stdout, "Detected newline!\n");
-	#endif /* DEBUG */
 	free(this->line_buffer);
+	this->line_buffer = new_line_buffer;
+
+	fputs(this->line_buffer, stdout);
+
 	this->line_buffer = NULL;
     }
     else {
@@ -200,11 +198,9 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	this->line_buffer = new_line_buffer;
 
 	#ifdef DEBUG
-	fprintf(stderr, "%s\n", this->line_buffer);
+	fprintf(stderr, "line_buffer: %s\n", this->line_buffer);
 	#endif /* DEBUG */
     }
-
-    //TODO forward message to all listening clients
 }
 
 void start_server(irc_multiplexer *this) {
