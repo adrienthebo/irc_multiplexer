@@ -131,6 +131,23 @@ void accept_socket(irc_multiplexer *this) {
     this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
 }
 
+void strn_append(char **old_str, char *append_str, size_t n) {
+
+    int new_str_len = strlen(*old_str) + n;
+    char * new_str = malloc(new_str_len + 1);
+    memset(new_str, 0, new_str_len + 1);
+
+    strcat(new_str, *old_str);
+    strncat(new_str, append_str, n);
+
+    free(*old_str);
+    *old_str = new_str;
+}
+
+void str_append(char **old_str, char *append_str) {
+    strn_append(old_str, append_str, strlen(append_str));
+}
+
 void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
     int newline_pos = -1;
 
@@ -166,36 +183,28 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	fprintf(stderr, "Newline found, fragment: \"%s\"\n", msg_fragment);
 	#endif /* DEBUG */
 
-	char *new_line_buffer = malloc(strlen(msg_fragment) + 
-		strlen(this->line_buffer) + 1);
-	memset(new_line_buffer, 0, strlen(msg_fragment) + 
-		strlen(this->line_buffer) + 1);
+	strn_append(&(this->line_buffer), msg_fragment, newline_pos + 1);
 
-	strcat(new_line_buffer, this->line_buffer);
-	strcat(new_line_buffer, msg_fragment);
-
-	free(this->line_buffer);
-	this->line_buffer = new_line_buffer;
-
+	#ifdef DEBUG
+	fprintf(stdout, "Received line ");
+	#endif /* DEBUG */
 	fputs(this->line_buffer, stdout);
 
-	this->line_buffer = NULL;
+	int excess_str = strlen(msg_fragment) - newline_pos;
+	if(excess_str > 0) {
+	    this->line_buffer = malloc(excess_str + 1);
+	    memset(this->line_buffer, 0, excess_str + 1);
+	    strcpy(this->line_buffer, msg_fragment + newline_pos + 1);
+	}
+	else {
+	    this->line_buffer = NULL;
+	}
     }
     else {
 	/* We're still aggregating information into the line_buffer
 	 */
 
-	//Allocate new buffer that has room and zero it out
-	char *new_line_buffer = malloc(strlen(msg_fragment) + 
-		strlen(this->line_buffer) + 1);
-	memset(new_line_buffer, 0, strlen(msg_fragment) + 
-		strlen(this->line_buffer) + 1);
-
-	strcat(new_line_buffer, this->line_buffer);
-	strcat(new_line_buffer, msg_fragment);
-
-	free(this->line_buffer);
-	this->line_buffer = new_line_buffer;
+	str_append(&(this->line_buffer), msg_fragment);
 
 	#ifdef DEBUG
 	fprintf(stderr, "line_buffer: %s\n", this->line_buffer);
