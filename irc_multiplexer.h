@@ -25,6 +25,9 @@ typedef struct irc_multiplexer_struct {
     //Address for clients to connect to
     char *listen_socket_path;
 
+    //select() timeout
+    struct timeval timeout;
+
     //IRC socket
     int server_socket;
     signed int rcvbuf;
