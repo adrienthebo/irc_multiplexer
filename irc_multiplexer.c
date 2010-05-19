@@ -125,7 +125,7 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
 /* 
  * Accepts a connection on the AF_UNIX socket
  */
-void accept_socket(irc_multiplexer *this) {
+void accept_client_socket(irc_multiplexer *this) {
     if(this->client_sockets == NULL) {
 	this->client_sockets = malloc(sizeof(client_socket));
     }
@@ -196,6 +196,9 @@ void str_append(char **old_str, char *append_str) {
  * <crlf>     ::= CR LF
  */
 void parse_message(char *str) {
+
+    irc_message *new_msg = malloc(sizeof(irc_message)); 
+
     //TODO Fix all the glaring issues with strlen
     char *head = str;
     char *tail;
@@ -208,10 +211,10 @@ void parse_message(char *str) {
     while(*tail != ' ') {
 	tail++;
     }
-    char *prefix = malloc(sizeof(char) * (tail - head) + 1);
-    memset(prefix, 0, (tail - head) + 1);
-    strncpy(prefix, head, tail - head);
-    fprintf(stdout, "prefix: %s\n", prefix);
+    char new_message->prefix = malloc(sizeof(char) * (tail - head) + 1);
+    memset(new_message->prefix, 0, (tail - head) + 1);
+    strncpy(new_message->prefix, head, tail - head);
+    fprintf(stdout, "new_message->prefix: %s\n", new_message->prefix);
 
     /* 
      * Extract command 
@@ -221,10 +224,10 @@ void parse_message(char *str) {
     while(*tail != ' ') {
 	tail++;
     }
-    char *command = malloc(sizeof(char) * (tail - head) + 1);
-    memset(command, 0, (tail - head) + 1);
-    strncpy(command, head, tail - head);
-    fprintf(stdout, "command: %s\n", command);
+    char *new_msg->command = malloc(sizeof(char) * (tail - head) + 1);
+    memset(new_msg->command, 0, (tail - head) + 1);
+    strncpy(new_msg->command, head, tail - head);
+    fprintf(stdout, "new_msg->command: %s\n", new_msg->command);
 
     /*
      * Extract params
@@ -235,28 +238,19 @@ void parse_message(char *str) {
     }
     head = tail;
     while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
-	if(*tail == '\r') {
-	    fputs("Hit carriage return\n", stderr);
-	    break;
-	}
-	if(*tail == '\n') {
-	    fputs("Hit newline\n", stderr);
-	    break;
-	}
 	tail++;
     }
-    char *params = malloc(sizeof(char) * (tail - head) + 1);
-    memset(params, 0, (tail - head) + 1);
-    strncpy(params, head, tail - head);
-    fprintf(stdout, "params: %s\n", params);
+    char *new_message->params = malloc(sizeof(char) * (tail - head) + 1);
+    memset(new_message->params, 0, (tail - head) + 1);
+    strncpy(new_message->params, head, tail - head);
+    fprintf(stdout, "new_message->params: %s\n", new_message->params);
 }
 
 /*
  * Handles incoming message fragments received from the server socket.
- * Concatenates and appends when necessary, and should send complete
- * strings off to listening sockets.
+ * Buffers input until a newline is reached, then acts as necessary.
  */
-void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
+void read_server_socket(irc_multiplexer *this, char *msg_fragment) {
     int newline_pos = -1;
 
     /* Scan fragment for a newline, to determine whether we can pipe our
@@ -354,17 +348,20 @@ void start_server(irc_multiplexer *this) {
 
 	//Begin main execution
 	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &(this->timeout));
+
+	//If no input, print a dot to indicate inactivity.
 	if(ready_fds == 0) {
 	    fputc('.', stdout);
 	    fflush(stdout);
 	}
+	//If server_socket is set, then handle that input
 	else if(FD_ISSET(this->server_socket, &readfds)) {
 	    recv(this->server_socket, buf, this->rcvbuf_len - 1, 0);
-	    handle_incoming_message(this, buf);
+	    read_server_socket(this, buf);
 	}
 	else if(FD_ISSET(this->listen_socket, &readfds)) {
 	    fputs("Received client connection on local socket", stdout);
-	    accept_socket(this);
+	    accept_client_socket(this);
 	}
 	// else one of our clients sent a message
 	//TODO forward message from client to server
