@@ -14,7 +14,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <fcntl.h>
 #include <errno.h>
 #include "irc_multiplexer.h"
 
@@ -214,7 +213,6 @@ void parse_message(char *str) {
     new_msg->prefix = malloc(sizeof(char) * (tail - head) + 1);
     memset(new_msg->prefix, 0, (tail - head) + 1);
     strncpy(new_msg->prefix, head, tail - head);
-    fprintf(stdout, "new_msg->prefix: %s\n", new_msg->prefix);
 
     /* 
      * Extract command 
@@ -227,7 +225,6 @@ void parse_message(char *str) {
     new_msg->command = malloc(sizeof(char) * (tail - head) + 1);
     memset(new_msg->command, 0, (tail - head) + 1);
     strncpy(new_msg->command, head, tail - head);
-    fprintf(stdout, "new_msg->command: %s\n", new_msg->command);
 
     /*
      * Extract params
@@ -243,7 +240,30 @@ void parse_message(char *str) {
     new_msg->params = malloc(sizeof(char) * (tail - head) + 1);
     memset(new_msg->params, 0, (tail - head) + 1);
     strncpy(new_msg->params, head, tail - head);
+
+    #ifdef DEBUG
+    fprintf(stdout, "new_msg->prefix: %s\n", new_msg->prefix);
+    fprintf(stdout, "new_msg->command: %s\n", new_msg->command);
     fprintf(stdout, "new_msg->params: %s\n", new_msg->params);
+    #endif /* DEBUG */
+}
+
+void send_server(irc_multiplexer *this, char *msg) {
+    unsigned int payload_len = strlen(msg);
+
+    while(payload_len > 0) {
+	#ifdef DEBUG
+	fprintf(stderr, "Attempting to send msg %s with payload_len %u\n", msg, payload_len);
+	#endif /* DEBUG */
+	ssize_t sent_data = send(this->server_socket, msg, payload_len, 0);
+	msg += sent_data;
+	payload_len -= sent_data;
+
+	#ifdef DEBUG
+	fprintf(stderr, "Sent %lu bytes, msg is %s, payload_len now %u\n", 
+		(unsigned long)sent_data, msg, payload_len);
+	#endif /* DEBUG */
+    }
 }
 
 /*
@@ -306,6 +326,10 @@ void read_server_socket(irc_multiplexer *this, char *msg_fragment) {
     }
 }
 
+void connection_manager(irc_multiplexer *this) {
+
+}
+
 /* 
  * Kicks off a while loop to handle all input from all sockets in every
  * direction, evar.
@@ -359,6 +383,7 @@ void start_server(irc_multiplexer *this) {
 	    recv(this->server_socket, buf, this->rcvbuf_len - 1, 0);
 	    read_server_socket(this, buf);
 	}
+	//We received a new connection from a client locally
 	else if(FD_ISSET(this->listen_socket, &readfds)) {
 	    fputs("Received client connection on local socket", stdout);
 	    accept_client_socket(this);
