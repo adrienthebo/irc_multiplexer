@@ -330,6 +330,34 @@ void connection_manager(irc_multiplexer *this) {
 
 }
 
+int prep_select(irc_multiplexer *this, fd_set *readfds) {
+    FD_ZERO(readfds);
+    FD_SET(this->server_socket, readfds);
+    FD_SET(this->listen_socket, readfds);
+
+    //Find the highest file descriptor for select
+    int nfds = 0;
+    if( nfds < this->server_socket) nfds = this->server_socket;
+    if( nfds < this->listen_socket) nfds = this->listen_socket;
+
+    //Load all the client sockets
+    for(client_socket *current = this->client_sockets;
+	    current != NULL;
+	    current = current->next ) {
+
+	#ifdef DEBUG
+	fprintf(stderr, "client fd: %d\n", current->fd);
+	#endif /* DEBUG */
+
+	//Locate highest fd for select()
+	if(nfds < current->fd) nfds = current->fd;
+	//Add client fd to listen sockets
+	FD_SET(current->fd, readfds);
+    }
+
+    return nfds;
+}
+
 /* 
  * Kicks off a while loop to handle all input from all sockets in every
  * direction, evar.
@@ -342,29 +370,7 @@ void start_server(irc_multiplexer *this) {
 
 	//Initialize read fd_set
 	fd_set readfds;
-	FD_ZERO(&readfds);
-	FD_SET(this->server_socket, &readfds);
-	FD_SET(this->listen_socket, &readfds);
-
-	//Find the highest file descriptor for select
-	int nfds = 0;
-	if( nfds < this->server_socket) nfds = this->server_socket;
-	if( nfds < this->listen_socket) nfds = this->listen_socket;
-
-	//Load all the client sockets
-	for(client_socket *current = this->client_sockets;
-		current != NULL;
-		current = current->next ) {
-
-	    #ifdef DEBUG
-	    fprintf(stderr, "client fd: %d\n", current->fd);
-	    #endif /* DEBUG */
-
-	    //Locate highest fd for select()
-	    if(nfds < current->fd) nfds = current->fd;
-	    //Add client fd to listen sockets
-	    FD_SET(current->fd, &readfds);
-	}
+	int nfds = prep_select(this, &readfds);
 
 	//Initialize timeout
 	this->timeout.tv_sec = 1;

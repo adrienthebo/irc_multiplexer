@@ -15,7 +15,6 @@ int main(int argc, char **argv) {
     catirc.identity.realname = "finchbot";
     catirc.identity.hostname = "finch@localhost";
     catirc.identity.servername = "*";
-    catirc.client_sockets = NULL;
 
     start_server(&catirc);
     return 0;
