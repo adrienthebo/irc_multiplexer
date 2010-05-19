@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
+#include <ctype.h>
 #include "irc_multiplexer.h"
 
 /*
@@ -195,31 +196,39 @@ void str_append(char **old_str, char *append_str) {
  * 
  * <crlf>     ::= CR LF
  */
-void parse_message(char *str) {
+irc_message * parse_message(char *str) {
 
     irc_message *new_msg = malloc(sizeof(irc_message)); 
+    new_msg->prefix = NULL;
+    new_msg->command = NULL;
+    new_msg->params = NULL;
 
     //TODO Fix all the glaring issues with strlen
     char *head = str;
-    char *tail;
+    char *tail = head;
 
-    /* 
-     * Extract prefix
-     */
-    //Skip leading ':'
-    tail = head;
-    while(*tail != ' ') {
+    //Attempt to extract prefix
+    if(*tail == ':') {
 	tail++;
-    }
-    new_msg->prefix = malloc(sizeof(char) * (tail - head) + 1);
-    memset(new_msg->prefix, 0, (tail - head) + 1);
-    strncpy(new_msg->prefix, head, tail - head);
+	while(*tail != ' ') {
+	    tail++;
+	}
 
-    /* 
-     * Extract command 
-     */
-    tail++;
-    head = tail;
+	new_msg->prefix = malloc(sizeof(char) * (tail - head) + 1);
+	memset(new_msg->prefix, 0, (tail - head) + 1);
+	strncpy(new_msg->prefix, head, tail - head);
+
+	while(*tail == ' ') tail++;
+	head = tail;
+    }
+
+    //Extract command 
+
+    //Check to see if we're receiving a server reply
+    if(isdigit(head[0]) && isdigit(head[1]) && isdigit(head[2])) {
+	fprintf(stderr, "Received server reply!\n");
+    }
+
     while(*tail != ' ') {
 	tail++;
     }
@@ -227,13 +236,8 @@ void parse_message(char *str) {
     memset(new_msg->command, 0, (tail - head) + 1);
     strncpy(new_msg->command, head, tail - head);
 
-    /*
-     * Extract params
-     */
+    //Attempt to extract params
     tail++;
-    if(*tail == ':') {
-	tail++;
-    }
     head = tail;
     while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
 	tail++;
@@ -241,14 +245,19 @@ void parse_message(char *str) {
     new_msg->params = malloc(sizeof(char) * (tail - head) + 1);
     memset(new_msg->params, 0, (tail - head) + 1);
     strncpy(new_msg->params, head, tail - head);
-
     #ifdef DEBUG
     fprintf(stdout, "new_msg->prefix: %s\n", new_msg->prefix);
     fprintf(stdout, "new_msg->command: %s\n", new_msg->command);
     fprintf(stdout, "new_msg->params: %s\n", new_msg->params);
     #endif /* DEBUG */
+
+    return new_msg;
 }
 
+/*
+ * Sends an entire line of data, and handles partial sends.
+ * TODO rework this so it uses the main select loop
+ */
 void send_server(irc_multiplexer *this, char *msg) {
     unsigned int payload_len = strlen(msg);
 
@@ -264,6 +273,17 @@ void send_server(irc_multiplexer *this, char *msg) {
 	fprintf(stderr, "Sent %lu bytes, remaining msg is now \"%s\", payload_len now %u\n", 
 		(unsigned long)sent_data, msg, payload_len);
 	#endif /* DEBUG */
+    }
+}
+
+void connection_manager(irc_multiplexer *this, irc_message *msg) {
+    if(strcmp(msg->command, "NOTICE") == 0) {
+	fprintf(stderr, "Received a notice. Ignoring.\n");
+    }
+    else if(strcmp(msg->command, "PING") == 0) {
+	char buf[256];
+	snprintf(buf, 256, "PONG :%s\r\n", msg->params);
+	send_server(this, buf);
     }
 }
 
@@ -308,7 +328,8 @@ void read_server_socket(irc_multiplexer *this, char *msg_fragment) {
 	fprintf(stdout, "Received line ");
 	#endif /* DEBUG */
 	fputs(this->line_buffer, stdout);
-	parse_message(this->line_buffer);
+	irc_message *msg = parse_message(this->line_buffer);
+	connection_manager(this, msg);
 	//TODO do something useful with a complete line
 
 	int excess_str = strlen(msg_fragment) - newline_pos;
@@ -327,27 +348,23 @@ void read_server_socket(irc_multiplexer *this, char *msg_fragment) {
     }
 }
 
-void connection_manager(irc_multiplexer *this) {
-    //Do initial connection stuff
-    if(this->on_connect == 0) {
-	char buf[256];
+void set_nick(irc_multiplexer *this) {
 
-	memset(buf, 0, 256);
-	snprintf(buf, 256, "NICK %s\r\n", this->identity.nick);
-	send_server(this, buf);
+    char buf[256];
+    memset(buf, 0, 256);
+    snprintf(buf, 256, "NICK %s\r\n", this->identity.nick);
+    send_server(this, buf);
+}
 
-	memset(buf, 0, 256);
+void register_user(irc_multiplexer *this) {
+    char buf[256];
 
-	//Parameters: <username> <hostname> <servername> <realname>
-	snprintf(buf, 256, "USER %s %s %s %s\r\n", 
-		this->identity.username, this->identity.hostname,
-		this->identity.servername, this->identity.realname);
+    //Parameters: <username> <hostname> <servername> <realname>
+    snprintf(buf, 256, "USER %s %s %s %s\r\n", 
+	    this->identity.username, this->identity.hostname,
+	    this->identity.servername, this->identity.realname);
 
-	send_server(this, buf);
-
-	this->on_connect = 1;
-    }
-
+    send_server(this, buf);
 }
 
 int prep_select(irc_multiplexer *this, fd_set *readfds) {
@@ -396,7 +413,15 @@ void start_server(irc_multiplexer *this) {
 	this->timeout.tv_sec = 1;
 	this->timeout.tv_usec = 0;
 
-	connection_manager(this);
+	if(this->on_connect == 0) {
+	    register_user(this);
+	    set_nick(this);
+
+	    char buf[256];
+	    snprintf(buf, 256, "MODE %s B\r\n", this->identity.nick);
+	    send_server(this, buf);
+	    this->on_connect = 1;
+	}
 
 	//Begin main execution
 	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &(this->timeout));
