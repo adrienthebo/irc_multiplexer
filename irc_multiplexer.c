@@ -211,10 +211,10 @@ void parse_message(char *str) {
     while(*tail != ' ') {
 	tail++;
     }
-    char new_message->prefix = malloc(sizeof(char) * (tail - head) + 1);
-    memset(new_message->prefix, 0, (tail - head) + 1);
-    strncpy(new_message->prefix, head, tail - head);
-    fprintf(stdout, "new_message->prefix: %s\n", new_message->prefix);
+    new_msg->prefix = malloc(sizeof(char) * (tail - head) + 1);
+    memset(new_msg->prefix, 0, (tail - head) + 1);
+    strncpy(new_msg->prefix, head, tail - head);
+    fprintf(stdout, "new_msg->prefix: %s\n", new_msg->prefix);
 
     /* 
      * Extract command 
@@ -224,7 +224,7 @@ void parse_message(char *str) {
     while(*tail != ' ') {
 	tail++;
     }
-    char *new_msg->command = malloc(sizeof(char) * (tail - head) + 1);
+    new_msg->command = malloc(sizeof(char) * (tail - head) + 1);
     memset(new_msg->command, 0, (tail - head) + 1);
     strncpy(new_msg->command, head, tail - head);
     fprintf(stdout, "new_msg->command: %s\n", new_msg->command);
@@ -240,10 +240,10 @@ void parse_message(char *str) {
     while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
 	tail++;
     }
-    char *new_message->params = malloc(sizeof(char) * (tail - head) + 1);
-    memset(new_message->params, 0, (tail - head) + 1);
-    strncpy(new_message->params, head, tail - head);
-    fprintf(stdout, "new_message->params: %s\n", new_message->params);
+    new_msg->params = malloc(sizeof(char) * (tail - head) + 1);
+    memset(new_msg->params, 0, (tail - head) + 1);
+    strncpy(new_msg->params, head, tail - head);
+    fprintf(stdout, "new_msg->params: %s\n", new_msg->params);
 }
 
 /*

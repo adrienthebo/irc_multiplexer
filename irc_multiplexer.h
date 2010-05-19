@@ -22,6 +22,15 @@ typedef struct irc_message_struct {
     char *params;
 } irc_message;
 
+typedef struct irc_identity_struct {
+    //Identity info
+    char *nick;
+    char *username;
+    char *realname;
+    char *hostname;
+    char *servername;
+} irc_identity;
+
 typedef struct irc_multiplexer_struct {
 
     //Describe the server we're talking to
@@ -43,12 +52,8 @@ typedef struct irc_multiplexer_struct {
     int listen_socket;
     client_socket *client_sockets;
 
-    //Identity info
-    char *nick;
-    char *username;
-    char *realname;
-    char *hostname;
-    char *servername;
+    irc_identity identity;
+
 } irc_multiplexer;
 
 void init_multiplexer(irc_multiplexer *this);

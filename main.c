@@ -10,11 +10,11 @@ int main(int argc, char **argv) {
     set_irc_server(&catirc, "irc.cat.pdx.edu", 6667);
     set_local_socket(&catirc, "/tmp/ircbot.sock");
 
-    catirc.nick = "finchbot";
-    catirc.username = "finch";
-    catirc.realname = "finchbot";
-    catirc.hostname = "finch@localhost";
-    catirc.servername = "*";
+    catirc.identity.nick = "finchbot";
+    catirc.identity.username = "finch";
+    catirc.identity.realname = "finchbot";
+    catirc.identity.hostname = "finch@localhost";
+    catirc.identity.servername = "*";
     catirc.client_sockets = NULL;
 
     start_server(&catirc);
