@@ -24,6 +24,7 @@
 void init_multiplexer(irc_multiplexer *this) {
     this->line_buffer = NULL;
     this->client_sockets = NULL;
+    this->on_connect = 0;
 }
 
 /*
@@ -253,14 +254,14 @@ void send_server(irc_multiplexer *this, char *msg) {
 
     while(payload_len > 0) {
 	#ifdef DEBUG
-	fprintf(stderr, "Attempting to send msg %s with payload_len %u\n", msg, payload_len);
+	fprintf(stderr, "Attempting to send msg \"%s\" with payload_len %u\n", msg, payload_len);
 	#endif /* DEBUG */
 	ssize_t sent_data = send(this->server_socket, msg, payload_len, 0);
 	msg += sent_data;
 	payload_len -= sent_data;
 
 	#ifdef DEBUG
-	fprintf(stderr, "Sent %lu bytes, msg is %s, payload_len now %u\n", 
+	fprintf(stderr, "Sent %lu bytes, remaining msg is now \"%s\", payload_len now %u\n", 
 		(unsigned long)sent_data, msg, payload_len);
 	#endif /* DEBUG */
     }
@@ -327,6 +328,25 @@ void read_server_socket(irc_multiplexer *this, char *msg_fragment) {
 }
 
 void connection_manager(irc_multiplexer *this) {
+    //Do initial connection stuff
+    if(this->on_connect == 0) {
+	char buf[256];
+
+	memset(buf, 0, 256);
+	snprintf(buf, 256, "NICK %s\r\n", this->identity.nick);
+	send_server(this, buf);
+
+	memset(buf, 0, 256);
+
+	//Parameters: <username> <hostname> <servername> <realname>
+	snprintf(buf, 256, "USER %s %s %s %s\r\n", 
+		this->identity.username, this->identity.hostname,
+		this->identity.servername, this->identity.realname);
+
+	send_server(this, buf);
+
+	this->on_connect = 1;
+    }
 
 }
 
@@ -375,6 +395,8 @@ void start_server(irc_multiplexer *this) {
 	//Initialize timeout
 	this->timeout.tv_sec = 1;
 	this->timeout.tv_usec = 0;
+
+	connection_manager(this);
 
 	//Begin main execution
 	int ready_fds = select(nfds + 1, &readfds, NULL, NULL, &(this->timeout));

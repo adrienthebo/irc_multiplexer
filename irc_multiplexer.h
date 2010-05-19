@@ -37,22 +37,22 @@ typedef struct irc_multiplexer_struct {
     char *server;
     in_port_t port;
 
-    //Address for clients to connect to
-    char *listen_socket_path;
-
-    //select() timeout
-    struct timeval timeout;
-
     //IRC socket
     int server_socket;
     signed int rcvbuf;
     unsigned int rcvbuf_len;
     char *line_buffer;
 
+    //Address for clients to connect to
+    char *listen_socket_path;
     int listen_socket;
     client_socket *client_sockets;
 
+    //select() timeout
+    struct timeval timeout;
+
     irc_identity identity;
+    int on_connect;
 
 } irc_multiplexer;
 
