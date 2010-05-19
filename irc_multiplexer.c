@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include "irc_multiplexer.h"
+#include "utilities.h"
 
 /*
  * Null out values that should be null, so we don't get madness and anarchy
@@ -139,121 +140,6 @@ void accept_client_socket(irc_multiplexer *this) {
     this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
 }
 
-/* 
- * Allocates memory for the concatenation of two strings, frees the old
- * string, and replaces the old string with the new string.
- *
- * TODO revisit this and think about how badly this would explode if a
- * static string was inputted.
- */
-void strn_append(char **old_str, char *append_str, size_t n) {
-
-    int new_str_len = strlen(*old_str) + n;
-    char * new_str = malloc(new_str_len + 1);
-    memset(new_str, 0, new_str_len + 1);
-
-    strcat(new_str, *old_str);
-    strncat(new_str, append_str, n);
-
-    free(*old_str);
-    *old_str = new_str;
-}
-
-/* 
- * Calls strn_append to append the entire append_str.
- */
-void str_append(char **old_str, char *append_str) {
-    strn_append(old_str, append_str, strlen(append_str));
-}
-
-/**
- * http://www.ietf.org/rfc/rfc1459.txt
- * 2.3.1 Message format in 'pseudo' BNF
- * 
- *    The protocol messages must be extracted from the contiguous stream of
- *    octets.  The current solution is to designate two characters, CR and
- *    LF, as message separators.   Empty  messages  are  silently  ignored,
- *    which permits  use  of  the  sequence  CR-LF  between  messages
- *    without extra problems.
- * 
- *    The extracted message is parsed into the components <prefix>,
- *    <command> and list of parameters matched either by <middle> or
- *    <trailing> components.
- * 
- *    The BNF representation for this is:
- * 
- * 
- * <message>  ::= [':' <prefix> <SPACE> ] <command> <params> <crlf>
- * <prefix>   ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
- * <command>  ::= <letter> { <letter> } | <number> <number> <number>
- * <SPACE>    ::= ' ' { ' ' }
- * <params>   ::= <SPACE> [ ':' <trailing> | <middle> <params> ]
- * 
- * <middle>   ::= <Any *non-empty* sequence of octets not including SPACE
- *                or NUL or CR or LF, the first of which may not be ':'>
- * <trailing> ::= <Any, possibly *empty*, sequence of octets not including
- *                  NUL or CR or LF>
- * 
- * <crlf>     ::= CR LF
- */
-irc_message * parse_message(char *str) {
-
-    irc_message *new_msg = malloc(sizeof(irc_message)); 
-    new_msg->prefix = NULL;
-    new_msg->command = NULL;
-    new_msg->params = NULL;
-
-    //TODO Fix all the glaring issues with strlen
-    char *head = str;
-    char *tail = head;
-
-    //Attempt to extract prefix
-    if(*tail == ':') {
-	tail++;
-	while(*tail != ' ') {
-	    tail++;
-	}
-
-	new_msg->prefix = malloc(sizeof(char) * (tail - head) + 1);
-	memset(new_msg->prefix, 0, (tail - head) + 1);
-	strncpy(new_msg->prefix, head, tail - head);
-
-	while(*tail == ' ') tail++;
-	head = tail;
-    }
-
-    //Extract command 
-
-    //Check to see if we're receiving a server reply
-    if(isdigit(head[0]) && isdigit(head[1]) && isdigit(head[2])) {
-	fprintf(stderr, "Received server reply!\n");
-    }
-
-    while(*tail != ' ') {
-	tail++;
-    }
-    new_msg->command = malloc(sizeof(char) * (tail - head) + 1);
-    memset(new_msg->command, 0, (tail - head) + 1);
-    strncpy(new_msg->command, head, tail - head);
-
-    //Attempt to extract params
-    tail++;
-    head = tail;
-    while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
-	tail++;
-    }
-    new_msg->params = malloc(sizeof(char) * (tail - head) + 1);
-    memset(new_msg->params, 0, (tail - head) + 1);
-    strncpy(new_msg->params, head, tail - head);
-    #ifdef DEBUG
-    fprintf(stdout, "new_msg->prefix: %s\n", new_msg->prefix);
-    fprintf(stdout, "new_msg->command: %s\n", new_msg->command);
-    fprintf(stdout, "new_msg->params: %s\n", new_msg->params);
-    #endif /* DEBUG */
-
-    return new_msg;
-}
-
 /*
  * Sends an entire line of data, and handles partial sends.
  * TODO rework this so it uses the main select loop
@@ -278,7 +164,9 @@ void send_server(irc_multiplexer *this, char *msg) {
 
 void connection_manager(irc_multiplexer *this, irc_message *msg) {
     if(strcmp(msg->command, "NOTICE") == 0) {
+	#ifdef DEBUG
 	fprintf(stderr, "Received a notice. Ignoring.\n");
+	#endif /* DEBUG */
     }
     else if(strcmp(msg->command, "PING") == 0) {
 	char buf[256];

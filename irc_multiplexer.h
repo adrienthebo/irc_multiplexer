@@ -10,17 +10,12 @@
 
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include "irc_message.h"
 
 typedef struct client_socket_struct {
     int fd;
     struct client_socket_struct *next;
 } client_socket;
-
-typedef struct irc_message_struct {
-    char *prefix;
-    char *command;
-    char *params;
-} irc_message;
 
 typedef struct irc_identity_struct {
     //Identity info
