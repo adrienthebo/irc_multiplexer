@@ -38,10 +38,9 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
     //Info for resolving DNS address
     struct addrinfo *query_result;
     struct sockaddr_in *sockdata;
-    int error;
 
     //Query DNS for hostname
-    error = getaddrinfo(server_name, NULL, NULL, &query_result);
+    int error = getaddrinfo(server_name, NULL, NULL, &query_result);
     if(error != 0) {
 	fprintf(stderr, "Error resolving %s: %s\n", server_name, gai_strerror(error));
 	exit(1);
@@ -166,6 +165,92 @@ void str_append(char **old_str, char *append_str) {
     strn_append(old_str, append_str, strlen(append_str));
 }
 
+/**
+ * http://www.ietf.org/rfc/rfc1459.txt
+ * 2.3.1 Message format in 'pseudo' BNF
+ * 
+ *    The protocol messages must be extracted from the contiguous stream of
+ *    octets.  The current solution is to designate two characters, CR and
+ *    LF, as message separators.   Empty  messages  are  silently  ignored,
+ *    which permits  use  of  the  sequence  CR-LF  between  messages
+ *    without extra problems.
+ * 
+ *    The extracted message is parsed into the components <prefix>,
+ *    <command> and list of parameters matched either by <middle> or
+ *    <trailing> components.
+ * 
+ *    The BNF representation for this is:
+ * 
+ * 
+ * <message>  ::= [':' <prefix> <SPACE> ] <command> <params> <crlf>
+ * <prefix>   ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
+ * <command>  ::= <letter> { <letter> } | <number> <number> <number>
+ * <SPACE>    ::= ' ' { ' ' }
+ * <params>   ::= <SPACE> [ ':' <trailing> | <middle> <params> ]
+ * 
+ * <middle>   ::= <Any *non-empty* sequence of octets not including SPACE
+ *                or NUL or CR or LF, the first of which may not be ':'>
+ * <trailing> ::= <Any, possibly *empty*, sequence of octets not including
+ *                  NUL or CR or LF>
+ * 
+ * <crlf>     ::= CR LF
+ */
+void parse_message(char *str) {
+    //TODO Fix all the glaring issues with strlen
+    char *head = str;
+    char *tail;
+
+    /* 
+     * Extract prefix
+     */
+    //Skip leading ':'
+    tail = head;
+    while(*tail != ' ') {
+	tail++;
+    }
+    char *prefix = malloc(sizeof(char) * (tail - head) + 1);
+    memset(prefix, 0, (tail - head) + 1);
+    strncpy(prefix, head, tail - head);
+    fprintf(stdout, "prefix: %s\n", prefix);
+
+    /* 
+     * Extract command 
+     */
+    tail++;
+    head = tail;
+    while(*tail != ' ') {
+	tail++;
+    }
+    char *command = malloc(sizeof(char) * (tail - head) + 1);
+    memset(command, 0, (tail - head) + 1);
+    strncpy(command, head, tail - head);
+    fprintf(stdout, "command: %s\n", command);
+
+    /*
+     * Extract params
+     */
+    tail++;
+    if(*tail == ':') {
+	tail++;
+    }
+    head = tail;
+    while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
+	if(*tail == '\r') {
+	    fputs("Hit carriage return\n", stderr);
+	    break;
+	}
+	if(*tail == '\n') {
+	    fputs("Hit newline\n", stderr);
+	    break;
+	}
+	tail++;
+    }
+    char *params = malloc(sizeof(char) * (tail - head) + 1);
+    memset(params, 0, (tail - head) + 1);
+    strncpy(params, head, tail - head);
+    fprintf(stdout, "params: %s\n", params);
+}
+
 /*
  * Handles incoming message fragments received from the server socket.
  * Concatenates and appends when necessary, and should send complete
@@ -202,16 +287,13 @@ void handle_incoming_message(irc_multiplexer *this, char *msg_fragment) {
 	 * the newline and then send it off.
 	 */
 
-	#ifdef DEBUG
-	fprintf(stderr, "Newline found, fragment: \"%s\"\n", msg_fragment);
-	#endif /* DEBUG */
-
 	strn_append(&(this->line_buffer), msg_fragment, newline_pos + 1);
 
 	#ifdef DEBUG
 	fprintf(stdout, "Received line ");
 	#endif /* DEBUG */
 	fputs(this->line_buffer, stdout);
+	parse_message(this->line_buffer);
 	//TODO do something useful with a complete line
 
 	int excess_str = strlen(msg_fragment) - newline_pos;
