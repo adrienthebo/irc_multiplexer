@@ -16,6 +16,12 @@ typedef struct client_socket_struct {
     struct client_socket_struct *next;
 } client_socket;
 
+typedef struct irc_message_struct {
+    char *prefix;
+    char *command;
+    char *params;
+} irc_message;
+
 typedef struct irc_multiplexer_struct {
 
     //Describe the server we're talking to
