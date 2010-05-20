@@ -41,12 +41,20 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
     struct addrinfo *query_result;
     struct sockaddr_in *sockdata;
 
+    #ifdef DEBUG
+    fprintf(stderr, "Resolving %s... ", server_name);
+    #endif /* DEBUG */
+
     //Query DNS for hostname
     int error = getaddrinfo(server_name, NULL, NULL, &query_result);
     if(error != 0) {
 	fprintf(stderr, "Error resolving %s: %s\n", server_name, gai_strerror(error));
 	exit(1);
     }
+
+    #ifdef DEBUG
+    fprintf(stderr, "%s\n", inet_ntoa(((struct sockaddr_in *)query_result->ai_addr)->sin_addr));
+    #endif /* DEBUG */
 
     //Prep socket info
     sockdata = (struct sockaddr_in *)query_result->ai_addr;
@@ -78,8 +86,8 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
 
     #ifdef DEBUG
     fprintf(stderr, "Connected to %s:%d\n", this->server, this->port);
-    fprintf(stderr, "rcbuf_len: %d\n", this->rcvbuf_len);
-    fprintf(stderr, "rcbuf: %u\n", this->rcvbuf_len);
+    fprintf(stderr, "rcvbuf_len: %d\n", this->rcvbuf_len);
+    fprintf(stderr, "rcvbuf: %u\n", this->rcvbuf_len);
     #endif /* DEBUG */
 
 }
@@ -170,7 +178,9 @@ void connection_manager(irc_multiplexer *this, irc_message *msg) {
     }
     else if(strcmp(msg->command, "PING") == 0) {
 	char buf[256];
-	snprintf(buf, 256, "PONG :%s\r\n", msg->params);
+	//TODO fix this in params
+	//snprintf(buf, 256, "PONG :%s\r\n", msg->params);
+	snprintf(buf, 256, "PONG %s\r\n", msg->params);
 	send_server(this, buf);
     }
 }
@@ -212,10 +222,6 @@ void read_server_socket(irc_multiplexer *this, char *msg_fragment) {
 
 	strn_append(&(this->line_buffer), msg_fragment, newline_pos + 1);
 
-	#ifdef DEBUG
-	fprintf(stdout, "Received line ");
-	#endif /* DEBUG */
-	fputs(this->line_buffer, stdout);
 	irc_message *msg = parse_message(this->line_buffer);
 	connection_manager(this, msg);
 	//TODO do something useful with a complete line
