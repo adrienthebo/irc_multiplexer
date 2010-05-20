@@ -10,6 +10,7 @@ typedef struct irc_message_struct {
     char *prefix;
     char *command;
     char *params;
+    char **params_array;
 } irc_message;
 
 irc_message * parse_message(char *str);

@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include "irc_message.h"
+#include "utilities.h"
 
 /**
  * http://www.ietf.org/rfc/rfc1459.txt
@@ -42,10 +43,10 @@
  */
 irc_message * parse_message(char *str) {
 
-    irc_message *new_msg = malloc(sizeof(irc_message)); 
-    new_msg->prefix = NULL;
-    new_msg->command = NULL;
-    new_msg->params = NULL;
+    irc_message *this = malloc(sizeof(irc_message)); 
+    this->prefix = NULL;
+    this->command = NULL;
+    this->params = NULL;
 
     //TODO Fix all the glaring issues with strlen
     char *head = str;
@@ -58,9 +59,9 @@ irc_message * parse_message(char *str) {
 	    tail++;
 	}
 
-	new_msg->prefix = malloc(sizeof(char) * (tail - head) + 1);
-	memset(new_msg->prefix, 0, (tail - head) + 1);
-	strncpy(new_msg->prefix, head, tail - head);
+	this->prefix = malloc(sizeof(char) * (tail - head) + 1);
+	memset(this->prefix, 0, (tail - head) + 1);
+	strncpy(this->prefix, head, tail - head);
 
 	while(*tail == ' ') tail++;
 	head = tail;
@@ -78,24 +79,69 @@ irc_message * parse_message(char *str) {
     while(*tail != ' ') {
 	tail++;
     }
-    new_msg->command = malloc(sizeof(char) * (tail - head) + 1);
-    memset(new_msg->command, 0, (tail - head) + 1);
-    strncpy(new_msg->command, head, tail - head);
+    this->command = malloc(sizeof(char) * (tail - head) + 1);
+    memset(this->command, 0, (tail - head) + 1);
+    strncpy(this->command, head, tail - head);
 
-    //Attempt to extract params
-    tail++;
-    head = tail;
-    while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
+    //Spool past whitespace
+    while(*tail == ' ') {
 	tail++;
     }
-    new_msg->params = malloc(sizeof(char) * (tail - head) + 1);
-    memset(new_msg->params, 0, (tail - head) + 1);
-    strncpy(new_msg->params, head, tail - head);
+
+    //Attempt to extract params
+    int trailing = 0;
+    head = tail;
+
+    char *buf[256];
+    memset(buf, 0, 256);
+    char **ptr = buf;
+
+    //Loop over the string until we see any situation indicating a line end
+    while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
+
+	//We tokenize on whitespace
+	if(!trailing && *tail == ' ') {
+	    char *tmp = malloc(sizeof(char) * (tail - head + 1));
+	    memset(tmp, 0, (tail - head) + 1);
+	    strncpy(tmp, head, tail - head);
+
+	    fprintf(stdout, "Token: %s\n", tmp);
+	    
+	    *ptr++ = tmp;
+	    head = tail;
+	    head++;
+	}
+
+	//If we discover a space followed by a colon, then we've hit the trailing
+	if(!trailing && *tail == ' ' && *(tail + 1) == ':') {
+	    puts("Encountered <trailing>\n");
+	    trailing = 1;
+	    head++;
+	}
+	tail++;
+    }
+
+    //TODO remove
+    this->params = malloc(sizeof(char) * (tail - head) + 1);
+    memset(this->params, 0, (tail - head) + 1);
+    strncpy(this->params, head, tail - head);
+
+    *ptr++ = this->params;
+
+    //Store all the parsed params into an array
+    this->params_array = malloc(sizeof(char *) * (ptr - buf));
+    memcpy(this->params_array, buf, (ptr - buf));
+
     #ifdef DEBUG
-    fprintf(stdout, "new_msg->prefix: %s\n", new_msg->prefix);
-    fprintf(stdout, "new_msg->command: %s\n", new_msg->command);
-    fprintf(stdout, "new_msg->params: %s\n", new_msg->params);
+    fprintf(stdout, "Size of params: %ld\n", ptr - buf);
+    fprintf(stdout, "this->prefix: %s\n", this->prefix);
+    fprintf(stdout, "this->command: %s\n", this->command);
+    for(int i = 0; i < (ptr - buf); i++) {
+	printf("%d: \"%s\"\n", i, buf[i]);
+    }
+    //fprintf(stdout, "this->params: %s\n", this->params);
     #endif /* DEBUG */
 
-    return new_msg;
+    return this;
 }
+
