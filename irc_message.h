@@ -11,6 +11,7 @@ typedef struct irc_message_struct {
     char *command;
     char *params;
     char **params_array;
+    size_t params_len;
 } irc_message;
 
 irc_message * parse_message(char *str);

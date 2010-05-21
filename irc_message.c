@@ -68,7 +68,107 @@ char * parse_command(irc_message *this, char *msg) {
     strncpy(this->command, msg, len);
     *(this->command + len + 1) = '\0';
 
-    return tail + 1;
+    return tail;
+}
+
+void add_param(irc_message *this, char *param) {
+    fprintf(stderr, "Adding new param %p \"%s\"\n", param, param);
+    fprintf(stderr, "this->params_len: %lu\n", this->params_len);
+    //Create new array of char *'s, and then add our new param to it
+    if(this->params_array == NULL) {
+	fprintf(stderr, "No existing params array, creating one.\n");
+	this->params_array = malloc(sizeof(char *));
+	(this->params_array)[0] = param;
+	this->params_len++;
+    }
+    //Expand array and add new param
+    else {
+	fprintf(stderr, "Appending char ptr \"%s\" to existing array.\n", param);
+	char ** new_params = malloc(sizeof(char *) * (this->params_len + 1));
+	char ** old_params = this->params_array;
+
+	memset(new_params, 0, this->params_len + 1);
+	memcpy(new_params, old_params, (sizeof(char *) *this->params_len));
+
+	new_params[this->params_len] = param;
+	this->params_len++;
+
+	this->params_array = new_params;
+	//free(old_params);
+    }
+    fprintf(stderr, "this->params_len: %lu\n", this->params_len);
+
+    for(int i = 0; i < this->params_len; i++) {
+	char ** arr = this->params_array;
+	fprintf(stderr, "addressof params_array[%d] = %p\n", i, arr[i]);
+	fprintf(stderr, "params_array[%d] = %s\n", i, arr[i]);
+    }
+}
+
+/* parse_params
+ *
+ * Recursively extracts params from an IRC message 
+ */
+char * parse_params(irc_message *this, char *msg) {
+
+    fprintf(stderr, "Parsing message %s\n", msg);
+
+    if(*msg != ' ') {
+	fprintf(stderr, "ERROR: malformed params field\n");
+	return NULL;
+    }
+
+    char *lookahead = msg;
+    while(*lookahead == ' ') {
+	fprintf(stderr, "lookahead: '%c'\n", *lookahead);
+	lookahead++;
+    }
+    fprintf(stderr, "terminal lookahead: '%c'\n", *lookahead);
+
+    if(strcmp(msg, "\r\n") == 0) {
+	fprintf(stdout, "Hit end of msg without <trailing> param component\n");
+	return NULL;
+    }
+
+    //Check to see if we're about to read trailing
+    if(strncmp(msg, " :", 2) == 0) {
+	fprintf(stdout, "Hit <trailing> param component\n");
+	
+	msg += 2;
+	char *tail = msg;
+
+	while(strncmp(tail, "\r\n", 2) != 0) {
+	    tail++;
+	}
+	
+	size_t len = tail - msg;
+	char *substr = malloc(len + 1);
+	strncpy(substr, msg, len);
+	*(substr + len) = '\0';
+
+	add_param(this, substr);
+	return NULL;
+    }
+    //We're still reading space delimited params
+    else {
+	msg++;
+	char *tail = msg;
+
+	fprintf(stderr, "BLort -> ");
+	while(*tail != ' ' && strncmp(tail, "\r\n", 2) != 0) {
+	    fputc(*tail, stderr);
+	    tail++;
+	}
+	fputs("\n", stderr);
+
+	size_t len = tail - msg;
+	char *substr = malloc(len + 1);
+	strncpy(substr, msg, len);
+	*(substr + len) = '\0';
+
+	add_param(this, substr);
+	return parse_params(this, tail);
+    }
 }
 
 /**
@@ -107,6 +207,8 @@ irc_message * parse_message(char *msg) {
     this->prefix = NULL;
     this->command = NULL;
     this->params = NULL;
+    this->params_array = NULL;
+    this->params_len = 0;
 
     //TODO Fix all the glaring issues with strlen
     char *head = msg;
@@ -116,6 +218,9 @@ irc_message * parse_message(char *msg) {
     msg++;
     msg = parse_command(this, msg);
 
+    parse_params(this, msg);
+
+#ifdef FUCK
     tail = head = msg;
 
     //Spool past whitespace
@@ -175,12 +280,14 @@ irc_message * parse_message(char *msg) {
     this->params_array = malloc(sizeof(char *) * (ptr - buf));
     memcpy(this->params_array, buf, (ptr - buf));
 
+#endif /* FUCK */
+
     #ifdef DEBUG
     fprintf(stdout, "this->prefix: \"%s\"\n", this->prefix);
     fprintf(stdout, "this->command: \"%s\"\n", this->command);
-    fprintf(stdout, "Size of params: %ld\n", ptr - buf);
-    for(int i = 0; i < (ptr - buf); i++) {
-	printf("%d: \"%s\"\n", i, buf[i]);
+    fprintf(stdout, "Size of params: %ld\n", this->params_len);
+    for(int i = 0; i < this->params_len; i++) {
+	printf("%d: \"%s\"\n", i, (this->params_array)[i]);
     }
     #endif /* DEBUG */
 
