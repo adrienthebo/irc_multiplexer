@@ -173,14 +173,12 @@ void send_server(irc_multiplexer *this, char *msg) {
 void connection_manager(irc_multiplexer *this, irc_message *msg) {
     if(strcmp(msg->command, "NOTICE") == 0) {
 	#ifdef DEBUG
-	fprintf(stderr, "Ignoring notice.\n");
+	//fprintf(stderr, "Ignoring notice.\n");
 	#endif /* DEBUG */
     }
     else if(strcmp(msg->command, "PING") == 0) {
 	char buf[256];
-	//TODO fix this in params
-	//snprintf(buf, 256, "PONG :%s\r\n", msg->params);
-	snprintf(buf, 256, "PONG %s\r\n", msg->params);
+	snprintf(buf, 256, "PONG :%s\r\n", (msg->params_array)[0]);
 	send_server(this, buf);
     }
 }
