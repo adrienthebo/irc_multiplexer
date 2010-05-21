@@ -11,6 +11,66 @@
 #include "irc_message.h"
 #include "utilities.h"
 
+/* parse_prefix
+ *
+ * Attempts to parse the prefix from an irc message, and store it in 
+ * irc_message->prefix
+ */
+char * parse_prefix(irc_message *this, char *msg) {
+    
+    fprintf(stdout, "msg: \"%s\"\n", msg);
+    //return as-is if no leading colon
+    if(*msg != ':') {
+	#ifdef DEBUG
+	fprintf(stderr, "No prefix.\n");
+	#endif /* DEBUG */
+	return msg;
+    }
+
+    char *tail = msg;
+
+    while(*tail != ' ') {
+	tail++;
+    }
+
+    size_t len = tail - msg;
+
+    this->prefix = malloc(len);
+    strncpy(this->prefix, msg, len - 1);
+    *(this->prefix + len) = '\0';
+
+    return tail;
+}
+
+/* parse_command
+ *
+ * Extracts the command from an IRC message, and stores it in 
+ * this->command
+ */
+char * parse_command(irc_message *this, char *msg) {
+
+    char *tail = msg;
+
+    //Check to see if we're receiving a server reply
+    if(isdigit(msg[0]) && isdigit(msg[1]) && isdigit(msg[2])) {
+	#ifdef DEBUG
+	fprintf(stderr, "Received server reply.\n");
+	#endif /* DEBUG */
+    }
+
+    while(*tail != ' ') {
+	tail++;
+    }
+
+    size_t len = tail - msg;
+
+    this->command = malloc(len + 1);
+    strncpy(this->command, msg, len);
+    *(this->command + len + 1) = '\0';
+
+    return tail + 1;
+}
+
 /**
  * http://www.ietf.org/rfc/rfc1459.txt
  * 2.3.1 Message format in 'pseudo' BNF
@@ -41,7 +101,7 @@
  * 
  * <crlf>     ::= CR LF
  */
-irc_message * parse_message(char *str) {
+irc_message * parse_message(char *msg) {
 
     irc_message *this = malloc(sizeof(irc_message)); 
     this->prefix = NULL;
@@ -49,39 +109,14 @@ irc_message * parse_message(char *str) {
     this->params = NULL;
 
     //TODO Fix all the glaring issues with strlen
-    char *head = str;
+    char *head = msg;
     char *tail = head;
 
-    //Attempt to extract prefix
-    if(*tail == ':') {
-	tail++;
-	while(*tail != ' ') {
-	    tail++;
-	}
+    msg = parse_prefix(this, msg);
+    msg++;
+    msg = parse_command(this, msg);
 
-	this->prefix = malloc(sizeof(char) * (tail - head) + 1);
-	memset(this->prefix, 0, (tail - head) + 1);
-	strncpy(this->prefix, head, tail - head);
-
-	while(*tail == ' ') tail++;
-	head = tail;
-    }
-
-    //Extract command 
-
-    //Check to see if we're receiving a server reply
-    if(isdigit(head[0]) && isdigit(head[1]) && isdigit(head[2])) {
-	#ifdef DEBUG
-	fprintf(stderr, "Received server reply!\n");
-	#endif /* DEBUG */
-    }
-
-    while(*tail != ' ') {
-	tail++;
-    }
-    this->command = malloc(sizeof(char) * (tail - head) + 1);
-    memset(this->command, 0, (tail - head) + 1);
-    strncpy(this->command, head, tail - head);
+    tail = head = msg;
 
     //Spool past whitespace
     while(*tail == ' ') {
@@ -99,25 +134,33 @@ irc_message * parse_message(char *str) {
     //Loop over the string until we see any situation indicating a line end
     while(*tail != '\r' && *tail != '\n' && *tail != '\0') {
 
+	//If we discover a space followed by a colon, then we've hit the trailing
+	if(!trailing && *tail == ' ' && *(tail + 1) == ':') {
+	    fprintf(stderr, "Trailing: \"%s\"\n", tail);
+	    trailing = 1;
+	}
+
 	//We tokenize on whitespace
-	if(!trailing && *tail == ' ') {
+	if(trailing != 2 && *tail == ' ' && head != tail) {
 	    char *tmp = malloc(sizeof(char) * (tail - head + 1));
 	    memset(tmp, 0, (tail - head) + 1);
 	    strncpy(tmp, head, tail - head);
 
-	    fprintf(stdout, "Token: %s\n", tmp);
-	    
 	    *ptr++ = tmp;
 	    head = tail;
 	    head++;
+
+	    /* We have to tokenize all strings delimited by whitespace, but
+	     * when we hit the colon we consider everything following to be
+	     * a single token.
+	     */
+	    if(trailing == 1) {
+		//Increment pointers past the colon
+		head++, tail++;
+		trailing = 2;
+	    }
 	}
 
-	//If we discover a space followed by a colon, then we've hit the trailing
-	if(!trailing && *tail == ' ' && *(tail + 1) == ':') {
-	    puts("Encountered <trailing>\n");
-	    trailing = 1;
-	    head++;
-	}
 	tail++;
     }
 
@@ -133,15 +176,13 @@ irc_message * parse_message(char *str) {
     memcpy(this->params_array, buf, (ptr - buf));
 
     #ifdef DEBUG
+    fprintf(stdout, "this->prefix: \"%s\"\n", this->prefix);
+    fprintf(stdout, "this->command: \"%s\"\n", this->command);
     fprintf(stdout, "Size of params: %ld\n", ptr - buf);
-    fprintf(stdout, "this->prefix: %s\n", this->prefix);
-    fprintf(stdout, "this->command: %s\n", this->command);
     for(int i = 0; i < (ptr - buf); i++) {
 	printf("%d: \"%s\"\n", i, buf[i]);
     }
-    //fprintf(stdout, "this->params: %s\n", this->params);
     #endif /* DEBUG */
 
     return this;
 }
-
