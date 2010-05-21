@@ -173,7 +173,7 @@ void send_server(irc_multiplexer *this, char *msg) {
 void connection_manager(irc_multiplexer *this, irc_message *msg) {
     if(strcmp(msg->command, "NOTICE") == 0) {
 	#ifdef DEBUG
-	fprintf(stderr, "Received a notice. Ignoring.\n");
+	fprintf(stderr, "Ignoring notice.\n");
 	#endif /* DEBUG */
     }
     else if(strcmp(msg->command, "PING") == 0) {
