@@ -333,8 +333,18 @@ void start_server(irc_multiplexer *this) {
 	    fputs("Received client connection on local socket", stdout);
 	    accept_client_socket(this);
 	}
+	else {
 	// else one of our clients sent a message
 	//TODO forward message from client to server
+	    for(client_socket *current = this->client_sockets;
+		    current != NULL;
+		    current = current->next ) {
+
+		if(FD_ISSET(current->fd, &readfds)) {
+		    fprintf(stderr, "received message from client fd: %d\n", current->fd);
+		}
+	    }
+	}
     }
 }
 
