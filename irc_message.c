@@ -100,6 +100,7 @@ void add_param(irc_message *this, char *param) {
  */
 char * parse_params(irc_message *this, char *msg) {
 
+    //Verify that the first character is a space, per the spec.
     if(*msg != ' ') {
 	fprintf(stderr, "ERROR: malformed params field\n");
 	return NULL;
@@ -110,7 +111,8 @@ char * parse_params(irc_message *this, char *msg) {
 	lookahead++;
     }
 
-    if(strcmp(msg, "\r\n") == 0) {
+    //Check to see if we are at the end of the line
+    if(strcmp(msg, "\r\n") == 0 || strcmp(lookahead, "\r\n") == 0) {
 	return NULL;
     }
 
@@ -183,12 +185,16 @@ char * parse_params(irc_message *this, char *msg) {
  */
 irc_message * parse_message(char *msg) {
 
+    //Prepare struct
     irc_message *this = malloc(sizeof(irc_message)); 
     this->prefix = NULL;
     this->command = NULL;
-    this->params = NULL;
     this->params_array = NULL;
     this->params_len = 0;
+
+    //Keep raw msg available for fun and profit.
+    this->msg = malloc(strlen(msg) + 1);
+    strcpy(this->msg, msg);
 
     msg = parse_prefix(this, msg);
     while(*msg == ' ') msg++;
@@ -196,11 +202,12 @@ irc_message * parse_message(char *msg) {
     parse_params(this, msg);
 
     #ifdef DEBUG
+    fprintf(stderr, "this->msg: \"%s\"\n", this->msg);
     fprintf(stderr, "this->prefix: \"%s\"\n", this->prefix);
     fprintf(stderr, "this->command: \"%s\"\n", this->command);
-    fprintf(stderr, "Size of params: %ld\n", this->params_len);
+    fprintf(stderr, "this->params_len: %ld\n", this->params_len);
     for(int i = 0; i < this->params_len; i++) {
-	printf("%d: \"%s\"\n", i, (this->params_array)[i]);
+	printf("(this->params_array)[%d]: \"%s\"\n", i, (this->params_array)[i]);
     }
     fprintf(stderr, "----------------------------------------\n");
     #endif /* DEBUG */

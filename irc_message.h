@@ -7,9 +7,9 @@
 #define _IRC_MESSAGE_H
 
 typedef struct irc_message_struct {
+    char *msg;
     char *prefix;
     char *command;
-    char *params;
     char **params_array;
     size_t params_len;
 } irc_message;
