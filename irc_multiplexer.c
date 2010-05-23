@@ -16,8 +16,13 @@
 #include <netdb.h>
 #include <errno.h>
 #include <ctype.h>
+
 #include "irc_multiplexer.h"
 #include "utilities.h"
+
+void on_read(char * msg) {
+    printf("Received message %s\n", msg);
+}
 
 /*
  * Null out values that should be null, so we don't get madness and anarchy
@@ -27,6 +32,7 @@ void init_multiplexer(irc_multiplexer *this) {
     this->line_buffer = NULL;
     this->client_sockets = NULL;
     this->on_connect = 0;
+    this->remote = new_buffered_socket("\r\n", &on_read, NULL);
 }
 
 /*
@@ -79,9 +85,9 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
      * allocate enough space for our local buffer. Retrieving less than the
      * entire buffer will truncate the message, and that is baaaad.
      */
-    this->server_socket = sock;
+    this->remote->fd = sock;
     this->rcvbuf_len = sizeof(this->rcvbuf);
-    getsockopt(this->server_socket, SOL_SOCKET, SO_RCVBUF, 
+    getsockopt(this->remote->fd, SOL_SOCKET, SO_RCVBUF, 
 	    &(this->rcvbuf), &(this->rcvbuf_len));
 
     #ifdef DEBUG
@@ -159,7 +165,7 @@ void send_server(irc_multiplexer *this, char *msg) {
 	#ifdef DEBUG
 	fprintf(stderr, "Attempting to send msg \"%s\" with payload_len %u\n", msg, payload_len);
 	#endif /* DEBUG */
-	ssize_t sent_data = send(this->server_socket, msg, payload_len, 0);
+	ssize_t sent_data = send(this->remote->fd, msg, payload_len, 0);
 	msg += sent_data;
 	payload_len -= sent_data;
 
@@ -180,63 +186,6 @@ void connection_manager(irc_multiplexer *this, irc_message *msg) {
 	char buf[256];
 	snprintf(buf, 256, "PONG :%s\r\n", (msg->params_array)[0]);
 	send_server(this, buf);
-    }
-}
-
-/*
- * Handles incoming message fragments received from the server socket.
- * Buffers input until a newline is reached, then acts as necessary.
- */
-void read_server_socket(irc_multiplexer *this, char *msg_fragment) {
-    int newline_pos = -1;
-
-    /* Scan fragment for a newline, to determine whether we can pipe our
-     * buffer to clients.
-     */
-    for(int i = 0; i <= strlen(msg_fragment); i++) {
-	if(msg_fragment[i] == '\n') {
-	    newline_pos = i;
-	    break;
-	}
-    }
-
-    /* We have no idea what recv is going to pass us, but we operate on 
-     * newline terminated strings. So, we need to concatenate them, and 
-     * then when we hit a newline we ship the line off.
-     */
-    if(this->line_buffer == NULL) {
-	/* No previously stored line, initialize a persistent buffer and 
-	 * store the line there
-	 */
-	this->line_buffer = malloc(strlen(msg_fragment) + 1);
-	memset(this->line_buffer, 0, strlen(msg_fragment) + 1);
-	
-	strcpy(this->line_buffer, msg_fragment);
-    }
-    else if(newline_pos != -1) {
-	/* Current message fragment has a newline, we need to append up to 
-	 * the newline and then send it off.
-	 */
-
-	strn_append(&(this->line_buffer), msg_fragment, newline_pos + 1);
-
-	irc_message *msg = parse_message(this->line_buffer);
-	connection_manager(this, msg);
-	//TODO do something useful with a complete line
-
-	int excess_str = strlen(msg_fragment) - newline_pos;
-	if(excess_str > 0) {
-	    this->line_buffer = malloc(excess_str + 1);
-	    memset(this->line_buffer, 0, excess_str + 1);
-	    strcpy(this->line_buffer, msg_fragment + newline_pos + 1);
-	}
-	else {
-	    this->line_buffer = NULL;
-	}
-    }
-    else {
-	//We're still aggregating information into the line_buffer
-	str_append(&(this->line_buffer), msg_fragment);
     }
 }
 
@@ -261,12 +210,12 @@ void register_user(irc_multiplexer *this) {
 
 int prep_select(irc_multiplexer *this, fd_set *readfds) {
     FD_ZERO(readfds);
-    FD_SET(this->server_socket, readfds);
+    FD_SET(this->remote->fd, readfds);
     FD_SET(this->listen_socket, readfds);
 
     //Find the highest file descriptor for select
     int nfds = 0;
-    if( nfds < this->server_socket) nfds = this->server_socket;
+    if( nfds < this->remote->fd) nfds = this->remote->fd;
     if( nfds < this->listen_socket) nfds = this->listen_socket;
 
     //Load all the client sockets
@@ -323,10 +272,11 @@ void start_server(irc_multiplexer *this) {
 	    fputc('.', stdout);
 	    fflush(stdout);
 	}
-	//If server_socket is set, then handle that input
-	else if(FD_ISSET(this->server_socket, &readfds)) {
-	    recv(this->server_socket, buf, this->rcvbuf_len - 1, 0);
-	    read_server_socket(this, buf);
+	//If remote->fd is set, then handle that input
+	else if(FD_ISSET(this->remote->fd, &readfds)) {
+	    read_buffered_socket(this->remote);
+	    //recv(this->remote->fd, buf, this->rcvbuf_len - 1, 0);
+	    //read_server_socket(this->remote, buf);
 	}
 	//We received a new connection from a client locally
 	else if(FD_ISSET(this->listen_socket, &readfds)) {

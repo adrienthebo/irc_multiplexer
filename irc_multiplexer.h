@@ -10,6 +10,8 @@
 
 #include <stdlib.h>
 #include <arpa/inet.h>
+
+#include "buffered_socket.h"
 #include "irc_message.h"
 
 typedef struct client_socket_struct {
@@ -33,7 +35,7 @@ typedef struct irc_multiplexer_struct {
     in_port_t port;
 
     //IRC socket
-    int server_socket;
+    buffered_socket *remote;
     signed int rcvbuf;
     unsigned int rcvbuf_len;
     char *line_buffer;
