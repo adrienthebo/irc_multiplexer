@@ -35,23 +35,28 @@ buffered_socket * new_buffered_socket(char *delimiter, void (*read_callback)(cha
 int read_buffered_socket(buffered_socket *this) {
 
     //Create a buffer that is the max size of a socket read
-    int rcvbuf = 0;
-    unsigned int rcvbuf_len = sizeof(int);
+    int rcvbuf = 8;
+    unsigned int rcvbuf_len = sizeof(rcvbuf);
+
+    /*
     getsockopt(this->fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbuf_len);
+    */
+    int error = setsockopt(this->fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, rcvbuf_len);
+    if(error != 0) {
+	perror("setsockopt()");
+	return -1;
+    }
+
     char buf[rcvbuf + 1];
     memset(buf, 0, rcvbuf + 1);
 
-    #ifdef DEBUG
-    fprintf(stderr, "rcvbuf_len: %d\n", rcvbuf_len);
-    fprintf(stderr, "rcvbuf: %u\n", rcvbuf);
-    #endif /* DEBUG */
+    //Receive data and ensure data truncation didn't occur
+    ssize_t received = recv(this->fd, buf, rcvbuf, 0);
+    if(received > rcvbuf) {
+	fprintf(stderr, "Error: data truncated during recv.\n");
+    }
 
-    //TODO compare bytes read vs bytes available
-    recv(this->fd, buf, rcvbuf, 0);
-
-    /* Scan fragment for a newline, to determine whether we can pipe our
-     * buffer to clients.
-     */
+    // Check to see if message contains delimiter
     char *delimiter_ptr = strstr(buf, this->delimiter);
     size_t delimiter_offset = delimiter_ptr - buf;
 
@@ -59,21 +64,20 @@ int read_buffered_socket(buffered_socket *this) {
      * the delimiter given to us. We store our input into a buffer until we
      * hit that delimiter and then we ship the buffer off.
      */
-    if(this->read_buffer == NULL) {
-	/* No previous buffer, initialize a persistent buffer and 
-	 * store the line there
-	 */
-	this->read_buffer = malloc(strlen(buf) + 1);
-	memset(this->read_buffer, 0, strlen(buf) + 1);
-	
-	strcpy(this->read_buffer, buf);
-	return 0;
-    }
-    else if(delimiter_ptr != NULL) {
+    if(delimiter_ptr != NULL) {
 	// Current message contains the delimiter
 
-	//Append up to the delimiter
-	strn_append(&(this->read_buffer), buf, delimiter_offset - 1);
+	if(this->read_buffer == NULL) {
+	    // No previous buffer, initialize one
+	    this->read_buffer = malloc(delimiter_offset);
+	    memset(this->read_buffer, 0, delimiter_offset);
+	    strncpy(this->read_buffer, buf, delimiter_offset - 1);
+	}
+
+	//Append up to the delimiter if it isn't the first character
+	if(delimiter_offset > 0) {
+	    strn_append(&(this->read_buffer), buf, delimiter_offset - 1);
+	}
 
 	//Fire off the callback!
 	(*(this->read_callback))(this->read_buffer);
@@ -81,7 +85,6 @@ int read_buffered_socket(buffered_socket *this) {
 	free(this->read_buffer);
 
 	//If anything remains after the delimiter, add it to a new buffer
-
 	size_t excess_str = strlen(delimiter_ptr + strlen(this->delimiter));
 	if(excess_str > 0) {
 	    this->read_buffer = malloc(excess_str + 1);
