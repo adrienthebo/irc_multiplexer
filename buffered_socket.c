@@ -59,6 +59,7 @@ int read_buffered_socket(buffered_socket *this) {
     // Check to see if message contains delimiter
     char *delimiter_ptr = strstr(buf, this->delimiter);
     size_t delimiter_offset = delimiter_ptr - buf;
+    size_t substr_len = delimiter_offset + strlen(this->delimiter);
 
     /* We have no idea what recv is going to pass us, but we operate on 
      * the delimiter given to us. We store our input into a buffer until we
@@ -69,14 +70,14 @@ int read_buffered_socket(buffered_socket *this) {
 
 	if(this->read_buffer == NULL) {
 	    // No previous buffer, initialize one
-	    this->read_buffer = malloc(delimiter_offset);
-	    memset(this->read_buffer, 0, delimiter_offset);
-	    strncpy(this->read_buffer, buf, delimiter_offset - 1);
+	    this->read_buffer = malloc(substr_len + 1);
+	    memset(this->read_buffer, 0, substr_len + 1);
+	    strncpy(this->read_buffer, buf, substr_len);
 	}
 
 	//Append up to the delimiter if it isn't the first character
-	if(delimiter_offset > 0) {
-	    strn_append(&(this->read_buffer), buf, delimiter_offset - 1);
+	if(substr_len + 1 > 0) {
+	    strn_append(&(this->read_buffer), buf, substr_len + 1);
 	}
 
 	//Fire off the callback!
