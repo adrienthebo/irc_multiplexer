@@ -34,9 +34,9 @@ char * parse_prefix(irc_message *this, char *msg) {
 
     size_t len = tail - msg;
 
-    this->prefix = malloc(len);
-    strncpy(this->prefix, msg, len - 1);
-    *(this->prefix + len) = '\0';
+    this->prefix = malloc(len + 1);
+    strncpy(this->prefix, msg, len);
+    *(this->prefix + len + 1) = '\0';
 
     return tail;
 }
@@ -112,7 +112,7 @@ char * parse_params(irc_message *this, char *msg) {
     }
 
     //Check to see if we are at the end of the line
-    if(strcmp(msg, "\r\n") == 0 || strcmp(lookahead, "\r\n") == 0) {
+    if(strncmp(msg, "\r\n", 2) == 0 || strncmp(lookahead, "\r\n", 2) == 0) {
 	return NULL;
     }
 
