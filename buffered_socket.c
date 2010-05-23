@@ -11,7 +11,7 @@
 #include "utilities.h"
 #include "buffered_socket.h"
 
-buffered_socket * new_buffered_socket(char *delimiter, void (*read_callback)(char *), void (*write_callback)(char *)) {
+buffered_socket * new_buffered_socket(char *delimiter, void (*read_callback)(char *, void *), void *read_callback_args) {
 
     buffered_socket *this = malloc(sizeof(buffered_socket));
 
@@ -21,8 +21,7 @@ buffered_socket * new_buffered_socket(char *delimiter, void (*read_callback)(cha
     this->write_buffer = NULL;
 
     this->read_callback = read_callback;
-    this->write_callback = write_callback;
-
+    this->read_callback_args = read_callback_args;
     return this;
 }
 
@@ -81,7 +80,7 @@ int read_buffered_socket(buffered_socket *this) {
 	}
 
 	//Fire off the callback!
-	(*(this->read_callback))(this->read_buffer);
+	(*(this->read_callback))(this->read_buffer, this->read_callback_args);
 
 	free(this->read_buffer);
 

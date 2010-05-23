@@ -20,8 +20,19 @@
 #include "irc_multiplexer.h"
 #include "utilities.h"
 
-void on_read(char * msg) {
-    printf("Received message %s\n", msg);
+/* Internal function declarations */
+void on_read(char * msg_str, void *args);
+void accept_client_socket(irc_multiplexer *this);
+void send_server(irc_multiplexer *this, char *msg);
+void connection_manager(irc_multiplexer *this, irc_message *msg);
+void set_nick(irc_multiplexer *this);
+void register_user(irc_multiplexer *this);
+int prep_select(irc_multiplexer *this, fd_set *readfds);
+
+void on_read(char * msg_str, void *args) {
+    irc_multiplexer *this = (irc_multiplexer *) args;
+    irc_message *irc_msg = parse_message(msg_str);
+    connection_manager(this, irc_msg);
 }
 
 /*
@@ -32,7 +43,7 @@ void init_multiplexer(irc_multiplexer *this) {
     this->line_buffer = NULL;
     this->client_sockets = NULL;
     this->on_connect = 0;
-    this->remote = new_buffered_socket("\r\n", &on_read, NULL);
+    this->remote = new_buffered_socket("\r\n", &on_read, this);
 }
 
 /*
