@@ -122,15 +122,11 @@ int write_buffered_socket(buffered_socket *this) {
     #endif /* DEBUG */
 
     if(payload_len == 0) {
-	free(this->write_buffer);
+	this->write_buffer = NULL;
 	return 1;
     }
     else {
-	char *new_write_buffer = malloc(strlen(msg) + 1);
-	strcpy(new_write_buffer, msg);
-	
-	free(this->write_buffer);
-	this->write_buffer = new_write_buffer;
+	this->write_buffer = msg;
 	return 0;
     }
 }
