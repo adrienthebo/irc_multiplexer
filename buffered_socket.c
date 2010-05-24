@@ -30,8 +30,6 @@ buffered_socket * new_buffered_socket(char *delimiter, void (*read_callback)(cha
 /*
  * Handles incoming message fragments received from the server socket.
  * Buffers input until a newline is reached, then acts as necessary.
- *
- * TODO fix handling of delimiter inside first message
  */
 int read_buffered_socket(buffered_socket *this) {
 
@@ -78,7 +76,8 @@ int read_buffered_socket(buffered_socket *this) {
 
 	//Append up to the delimiter if it isn't the first character
 	if(substr_len + 1 > 0) {
-	    strn_append(&(this->read_buffer), buf, substr_len + 1);
+	    char *old = strn_append(&(this->read_buffer), buf, substr_len + 1);
+	    free(old);
 	}
 
 	//Fire off the callback!
@@ -100,7 +99,8 @@ int read_buffered_socket(buffered_socket *this) {
     }
     else {
 	//We're still aggregating information into the read_buffer
-	str_append(&(this->read_buffer), buf);
+	char *old = str_append(&(this->read_buffer), buf);
+	free(old);
 	return 0;
     }
 }
