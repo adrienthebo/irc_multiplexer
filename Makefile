@@ -1,16 +1,15 @@
 # Makefile
 CC=gcc
 CFLAGS += -g -Wall -std=gnu99
-#LIBS += $(shell pkg-config --cflags --libs glib-2.0)
 
 .PHONY: all
 
 all: bot
 debug: 
 	CFLAGS="-DDEBUG" $(MAKE)
-bot: main.o irc_multiplexer.o irc_message.o buffered_socket.o utilities.o
+bot: server.o irc_multiplexer.o irc_message.o buffered_socket.o utilities.o
 	$(CC) $(CFLAGS) $(LIBS) -o $@ $^ 
-main.o: main.c irc_multiplexer.h
+server.o: server.c irc_multiplexer.h
 	$(CC) $(CFLAGS) $(LIBS) -c $<
 irc_multiplexer.o: irc_multiplexer.c irc_multiplexer.h irc_message.h utilities.h
 	$(CC) $(CFLAGS) $(LIBS) -c $<
@@ -21,5 +20,5 @@ buffered_socket.o: buffered_socket.c buffered_socket.h utilities.h
 utilities.o: utilities.c utilities.h
 	$(CC) $(CFLAGS) $(LIBS) -c $<
 clean:
-	rm -f bot main.o irc_multiplexer.o irc_message.o utilities.o
+	rm -f bot server.o irc_multiplexer.o irc_message.o utilities.o
 
