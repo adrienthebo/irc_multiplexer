@@ -4,12 +4,17 @@ CFLAGS += -g -Wall -std=gnu99
 
 .PHONY: all
 
-all: bot
+all: bot client
 debug: 
 	CFLAGS="-DDEBUG" $(MAKE)
 bot: server.o irc_multiplexer.o irc_message.o buffered_socket.o utilities.o
 	$(CC) $(CFLAGS) $(LIBS) -o $@ $^ 
+client: client.o
+	$(CC) $(CFLAGS) $(LIBS) -o $@ $^ 
+
 server.o: server.c irc_multiplexer.h
+	$(CC) $(CFLAGS) $(LIBS) -c $<
+client.o: client.c
 	$(CC) $(CFLAGS) $(LIBS) -c $<
 irc_multiplexer.o: irc_multiplexer.c irc_multiplexer.h irc_message.h utilities.h
 	$(CC) $(CFLAGS) $(LIBS) -c $<
@@ -20,5 +25,6 @@ buffered_socket.o: buffered_socket.c buffered_socket.h utilities.h
 utilities.o: utilities.c utilities.h
 	$(CC) $(CFLAGS) $(LIBS) -c $<
 clean:
-	rm -f bot server.o irc_multiplexer.o irc_message.o utilities.o
+	rm -f bot client \
+	    server.o irc_multiplexer.o irc_message.o utilities.o
 
