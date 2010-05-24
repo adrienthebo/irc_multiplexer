@@ -15,7 +15,7 @@
 #include "irc_message.h"
 
 typedef struct client_socket_struct {
-    int fd;
+    buffered_socket *bufsock;
     struct client_socket_struct *next;
 } client_socket;
 
@@ -43,7 +43,8 @@ typedef struct irc_multiplexer_struct {
     //Address for clients to connect to
     char *listen_socket_path;
     int listen_socket;
-    client_socket *client_sockets;
+
+    client_socket *clients;
 
     //select() timeout
     struct timeval timeout;

@@ -41,9 +41,15 @@ void on_read(char * msg_str, void *args) {
  */
 void init_multiplexer(irc_multiplexer *this) {
     this->line_buffer = NULL;
-    this->client_sockets = NULL;
+    this->clients = NULL;
     this->on_connect = 0;
     this->remote = new_buffered_socket("\r\n", &on_read, this);
+
+    for(client_socket *current = this->clients;
+	    current != NULL;
+	    current = current->next ) {
+
+    }
 }
 
 /*
@@ -153,16 +159,16 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
  * Accepts a connection on the AF_UNIX socket
  */
 void accept_client_socket(irc_multiplexer *this) {
-    if(this->client_sockets == NULL) {
-	this->client_sockets = malloc(sizeof(client_socket));
+    if(this->clients == NULL) {
+	this->clients = malloc(sizeof(client_socket));
     }
     else {
 	client_socket *new_socket = malloc(sizeof(client_socket));
-	new_socket->next = this->client_sockets;
-	this->client_sockets = new_socket;
+	new_socket->next = this->clients;
+	this->clients = new_socket;
     }
 
-    this->client_sockets->fd = accept(this->listen_socket, NULL, NULL);
+    this->clients->bufsock->fd = accept(this->listen_socket, NULL, NULL);
 }
 
 /*
@@ -230,18 +236,18 @@ int prep_select(irc_multiplexer *this, fd_set *readfds) {
     if( nfds < this->listen_socket) nfds = this->listen_socket;
 
     //Load all the client sockets
-    for(client_socket *current = this->client_sockets;
+    for(client_socket *current = this->clients;
 	    current != NULL;
 	    current = current->next ) {
 
 	#ifdef DEBUG
-	fprintf(stderr, "client fd: %d\n", current->fd);
+	fprintf(stderr, "client fd: %d\n", current->bufsock->fd);
 	#endif /* DEBUG */
 
 	//Locate highest fd for select()
-	if(nfds < current->fd) nfds = current->fd;
+	if(nfds < current->bufsock->fd) nfds = current->bufsock->fd;
 	//Add client fd to listen sockets
-	FD_SET(current->fd, readfds);
+	FD_SET(current->bufsock->fd, readfds);
     }
 
     return nfds;
@@ -297,12 +303,12 @@ void start_server(irc_multiplexer *this) {
 	else {
 	// else one of our clients sent a message
 	//TODO forward message from client to server
-	    for(client_socket *current = this->client_sockets;
+	    for(client_socket *current = this->clients;
 		    current != NULL;
 		    current = current->next ) {
 
-		if(FD_ISSET(current->fd, &readfds)) {
-		    fprintf(stderr, "received message from client fd: %d\n", current->fd);
+		if(FD_ISSET(current->bufsock->fd, &readfds)) {
+		    fprintf(stderr, "received message from client fd: %d\n", current->bufsock->fd);
 		}
 	    }
 	}

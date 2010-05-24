@@ -36,7 +36,7 @@ char * parse_prefix(irc_message *this, char *msg) {
 
     this->prefix = malloc(len + 1);
     strncpy(this->prefix, msg, len);
-    *(this->prefix + len + 1) = '\0';
+    *(this->prefix + len) = '\0';
 
     return tail;
 }
