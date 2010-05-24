@@ -16,4 +16,6 @@ typedef struct irc_message_struct {
 
 irc_message * parse_message(char *str);
 
+void destroy_message(irc_message *this);
+
 #endif /* _IRC_MESSAGE_H */

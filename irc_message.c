@@ -214,3 +214,15 @@ irc_message * parse_message(char *msg) {
 
     return this;
 }
+
+void destroy_message(irc_message *this) {
+    
+    free(this->msg);
+    free(this->prefix);
+    free(this->command);
+
+    for(int i = 0; i < this->params_len; i++) {
+	free((this->params_array)[i]);
+    }
+}
+
