@@ -21,7 +21,8 @@
 #include "utilities.h"
 
 /* Internal function declarations */
-void on_read(char * msg_str, void *args);
+void on_remote_read(char * msg_str, void *args);
+void on_client_read(char * msg_str, void *args);
 void accept_client_socket(irc_multiplexer *this);
 void send_server(irc_multiplexer *this, char *msg);
 void connection_manager(irc_multiplexer *this, irc_message *msg);
@@ -29,7 +30,7 @@ void set_nick(irc_multiplexer *this);
 void register_user(irc_multiplexer *this);
 int prep_select(irc_multiplexer *this, fd_set *readfds);
 
-void on_read(char * msg_str, void *args) {
+void on_remote_read(char * msg_str, void *args) {
     irc_multiplexer *this = (irc_multiplexer *) args;
     irc_message *irc_msg = parse_message(msg_str);
     connection_manager(this, irc_msg);
@@ -46,6 +47,12 @@ void on_read(char * msg_str, void *args) {
     destroy_message(irc_msg);
 }
 
+void on_client_read(char * msg_str, void *args) {
+
+    fprintf(stdout, "Received message \"%s\" from client\n", msg_str);
+}
+
+
 /*
  * Null out values that should be null, so we don't get madness and anarchy
  * when uninitialized strings are used.
@@ -54,7 +61,7 @@ void init_multiplexer(irc_multiplexer *this) {
     this->line_buffer = NULL;
     this->clients = NULL;
     this->on_connect = 0;
-    this->remote = new_buffered_socket("\r\n", &on_read, this);
+    this->remote = new_buffered_socket("\r\n", &on_remote_read, this);
 
 }
 
@@ -68,7 +75,6 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
 
     //Info for resolving DNS address
     struct addrinfo *query_result;
-    struct sockaddr_in *sockdata;
 
     #ifdef DEBUG
     fprintf(stderr, "Resolving %s... ", server_name);
@@ -86,7 +92,7 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
     #endif /* DEBUG */
 
     //Prep socket info
-    sockdata = (struct sockaddr_in *)query_result->ai_addr;
+    struct sockaddr_in *sockdata = (struct sockaddr_in *)query_result->ai_addr;
     sockdata->sin_port = htons(server_port);
 
     //Generate socket
@@ -167,13 +173,14 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
 void accept_client_socket(irc_multiplexer *this) {
     if(this->clients == NULL) {
 	this->clients = malloc(sizeof(client_socket));
+	this->clients->next = NULL;
     }
     else {
 	client_socket *new_socket = malloc(sizeof(client_socket));
 	new_socket->next = this->clients;
 	this->clients = new_socket;
     }
-
+    this->clients->bufsock = new_buffered_socket("\r\n", on_client_read, NULL);
     this->clients->bufsock->fd = accept(this->listen_socket, NULL, NULL);
 }
 
@@ -247,7 +254,7 @@ int prep_select(irc_multiplexer *this, fd_set *readfds) {
 	    current = current->next ) {
 
 	#ifdef DEBUG
-	fprintf(stderr, "client fd: %d\n", current->bufsock->fd);
+	//fprintf(stderr, "adding client fd to select(): %d\n", current->bufsock->fd);
 	#endif /* DEBUG */
 
 	//Locate highest fd for select()

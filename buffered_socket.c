@@ -15,6 +15,8 @@ buffered_socket * new_buffered_socket(char *delimiter, void (*read_callback)(cha
 
     buffered_socket *this = malloc(sizeof(buffered_socket));
 
+    this->fd = -1;
+
     this->delimiter = delimiter;
 
     this->read_buffer = NULL;

@@ -65,7 +65,7 @@ char * parse_command(irc_message *this, char *msg) {
 
     this->command = malloc(len + 1);
     strncpy(this->command, msg, len);
-    *(this->command + len + 1) = '\0';
+    *(this->command + len) = '\0';
 
     return tail;
 }
