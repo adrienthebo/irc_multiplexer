@@ -33,6 +33,17 @@ void on_read(char * msg_str, void *args) {
     irc_multiplexer *this = (irc_multiplexer *) args;
     irc_message *irc_msg = parse_message(msg_str);
     connection_manager(this, irc_msg);
+
+    for(client_socket *current = this->clients;
+	    current != NULL;
+	    current = current->next ) {
+
+	fprintf(stdout, "Sending message to client fd %d\n", current->bufsock->fd);
+	current->bufsock->write_buffer = msg_str;
+	write_buffered_socket(current->bufsock);
+    }
+
+    destroy_message(irc_msg);
 }
 
 /*
@@ -45,11 +56,6 @@ void init_multiplexer(irc_multiplexer *this) {
     this->on_connect = 0;
     this->remote = new_buffered_socket("\r\n", &on_read, this);
 
-    for(client_socket *current = this->clients;
-	    current != NULL;
-	    current = current->next ) {
-
-    }
 }
 
 /*
