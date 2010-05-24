@@ -196,16 +196,24 @@ irc_message * parse_message(char *msg) {
     this->msg = malloc(strlen(msg) + 1);
     strcpy(this->msg, msg);
 
+    #ifdef DEBUG
+    fprintf(stderr, "this->msg: \"%s\"\n", this->msg);
+    #endif /* DEBUG */
+
     msg = parse_prefix(this, msg);
+    #ifdef DEBUG
+    fprintf(stderr, "this->prefix: \"%s\"\n", this->prefix);
+    #endif /* DEBUG */
+
     while(*msg == ' ') msg++;
     msg = parse_command(this, msg);
+    #ifdef DEBUG
+    fprintf(stderr, "this->command: \"%s\"\n", this->command);
+    #endif /* DEBUG */
+
     parse_params(this, msg);
 
     #ifdef DEBUG
-    fprintf(stderr, "this->msg: \"%s\"\n", this->msg);
-    fprintf(stderr, "this->prefix: \"%s\"\n", this->prefix);
-    fprintf(stderr, "this->command: \"%s\"\n", this->command);
-    fprintf(stderr, "this->params_len: %ld\n", this->params_len);
     for(int i = 0; i < this->params_len; i++) {
 	printf("(this->params_array)[%d]: \"%s\"\n", i, (this->params_array)[i]);
     }
