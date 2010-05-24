@@ -25,6 +25,6 @@ buffered_socket.o: buffered_socket.c buffered_socket.h utilities.h
 utilities.o: utilities.c utilities.h
 	$(CC) $(CFLAGS) $(LIBS) -c $<
 clean:
-	rm -f bot client \
+	rm -f bot client client.o buffered_socket.o \
 	    server.o irc_multiplexer.o irc_message.o utilities.o
 
