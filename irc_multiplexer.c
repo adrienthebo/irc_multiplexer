@@ -24,17 +24,24 @@
 void on_remote_read(char * msg_str, void *args);
 void on_client_read(char * msg_str, void *args);
 void accept_client_socket(irc_multiplexer *this);
-void send_server(irc_multiplexer *this, char *msg);
 void connection_manager(irc_multiplexer *this, irc_message *msg);
 void set_nick(irc_multiplexer *this);
 void register_user(irc_multiplexer *this);
 int prep_select(irc_multiplexer *this, fd_set *readfds);
+void check_select(irc_multiplexer *this, fd_set *readfds);
 
+/* 
+ * Callback method for the buffered socket that wraps the remote connection
+ */
 void on_remote_read(char * msg_str, void *args) {
+    //Unpack args
     irc_multiplexer *this = (irc_multiplexer *) args;
     irc_message *irc_msg = parse_message(msg_str);
+
+    //Run internal checks on the message to see if we need to react
     connection_manager(this, irc_msg);
 
+    //Forward message to all clients
     for(client_socket *current = this->clients;
 	    current != NULL;
 	    current = current->next ) {
@@ -54,6 +61,7 @@ void on_client_read(char * msg_str, void *args) {
 
 
 /*
+ * Constructor for an irc_multiplexer
  * Null out values that should be null, so we don't get madness and anarchy
  * when uninitialized strings are used.
  */
@@ -66,7 +74,7 @@ void init_multiplexer(irc_multiplexer *this) {
 }
 
 /*
- * Generates an AF_INET socket to the server and stores it
+ * Generates an AF_INET socket to the remote and stores it
  */
 void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_port) {
 
@@ -128,7 +136,7 @@ void set_irc_server(irc_multiplexer *this, char *server_name, in_port_t server_p
 }
 
 /* 
- * Generates and listens to a AF_UNIX socket
+ * Generates and listens for clients on the listen socket
  */
 void set_local_socket(irc_multiplexer *this, char *socket_path) {
 
@@ -168,7 +176,7 @@ void set_local_socket(irc_multiplexer *this, char *socket_path) {
 }
 
 /* 
- * Accepts a connection on the AF_UNIX socket
+ * Accepts a connection on the local listen socket
  */
 void accept_client_socket(irc_multiplexer *this) {
     if(this->clients == NULL) {
@@ -184,28 +192,6 @@ void accept_client_socket(irc_multiplexer *this) {
     this->clients->bufsock->fd = accept(this->listen_socket, NULL, NULL);
 }
 
-/*
- * Sends an entire line of data, and handles partial sends.
- * TODO rework this so it uses the main select loop
- */
-void send_server(irc_multiplexer *this, char *msg) {
-    unsigned int payload_len = strlen(msg);
-
-    while(payload_len > 0) {
-	#ifdef DEBUG
-	fprintf(stderr, "Attempting to send msg \"%s\" with payload_len %u\n", msg, payload_len);
-	#endif /* DEBUG */
-	ssize_t sent_data = send(this->remote->fd, msg, payload_len, 0);
-	msg += sent_data;
-	payload_len -= sent_data;
-
-	#ifdef DEBUG
-	fprintf(stderr, "Sent %lu bytes, remaining msg is now \"%s\", payload_len now %u\n", 
-		(unsigned long)sent_data, msg, payload_len);
-	#endif /* DEBUG */
-    }
-}
-
 void connection_manager(irc_multiplexer *this, irc_message *msg) {
     if(strcmp(msg->command, "NOTICE") == 0) {
 	#ifdef DEBUG
@@ -215,7 +201,8 @@ void connection_manager(irc_multiplexer *this, irc_message *msg) {
     else if(strcmp(msg->command, "PING") == 0) {
 	char buf[256];
 	snprintf(buf, 256, "PONG :%s\r\n", (msg->params_array)[0]);
-	send_server(this, buf);
+	this->remote->write_buffer = buf;
+	write_buffered_socket(this->remote);
     }
 }
 
@@ -224,7 +211,8 @@ void set_nick(irc_multiplexer *this) {
     char buf[256];
     memset(buf, 0, 256);
     snprintf(buf, 256, "NICK %s\r\n", this->identity.nick);
-    send_server(this, buf);
+    this->remote->write_buffer = buf;
+    write_buffered_socket(this->remote);
 }
 
 void register_user(irc_multiplexer *this) {
@@ -235,7 +223,8 @@ void register_user(irc_multiplexer *this) {
 	    this->identity.username, this->identity.hostname,
 	    this->identity.servername, this->identity.realname);
 
-    send_server(this, buf);
+    this->remote->write_buffer = buf;
+    write_buffered_socket(this->remote);
 }
 
 int prep_select(irc_multiplexer *this, fd_set *readfds) {
@@ -290,7 +279,8 @@ void start_server(irc_multiplexer *this) {
 
 	    char buf[256];
 	    snprintf(buf, 256, "MODE %s B\r\n", this->identity.nick);
-	    send_server(this, buf);
+	    this->remote->write_buffer = buf;
+	    write_buffered_socket(this->remote);
 	    this->on_connect = 1;
 	}
 
@@ -322,6 +312,15 @@ void start_server(irc_multiplexer *this) {
 
 		if(FD_ISSET(current->bufsock->fd, &readfds)) {
 		    fprintf(stderr, "received message from client fd: %d\n", current->bufsock->fd);
+		    int client_rcvbuf;
+		    unsigned int client_rcvbuf_len = sizeof(client_rcvbuf);
+		    getsockopt(current->bufsock->fd, SOL_SOCKET, SO_RCVBUF, &client_rcvbuf, &client_rcvbuf_len);
+
+		    char clientbuf[client_rcvbuf + 1];
+		    memset(clientbuf, 0, client_rcvbuf + 1);
+		    size_t received = recv(current->bufsock->fd, clientbuf, client_rcvbuf, 0);
+		    fprintf(stderr, "message was \"%s\" of size %lu\n", clientbuf, received);
+		    fprintf(stderr, "----------------------------------------\n");
 		}
 	    }
 	}
