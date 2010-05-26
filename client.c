@@ -37,10 +37,10 @@ int main(int argc, char **argv) {
     getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbuf_len);
     fprintf(stderr, "Buffer size: %u\n", rcvbuf);
 
-    char buf[rcvbuf + 1];
-    buf[rcvbuf + 1] = '\0';
 
     while(1) {
+	char buf[rcvbuf + 1];
+	buf[rcvbuf + 1] = '\0';
 	memset(buf, 0, rcvbuf + 1);
 	ssize_t retrieved = recv(fd, buf, rcvbuf, 0);
 	signed int so_error = 0;
@@ -66,6 +66,9 @@ int main(int argc, char **argv) {
 
 	if(sent != strlen(buf)) {
 	    fprintf(stderr, "ERROR: dur wut\n");
+	}
+	else {
+	    fprintf(stdout, "---\nSent message %s of size %lu\n---\n", buf, sizeof(buf));
 	}
     }
     fprintf(stdout, "Exiting.\n");

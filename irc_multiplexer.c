@@ -273,10 +273,14 @@ void start_server(irc_multiplexer *this) {
 	this->timeout.tv_sec = 1;
 	this->timeout.tv_usec = 0;
 
+	/* On connect setup and such
+	 * TODO rethink and generalize this.
+	 */
 	if(this->on_connect == 0) {
 	    register_user(this);
 	    set_nick(this);
 
+	    //TODO put mode changes in a function
 	    char buf[256];
 	    snprintf(buf, 256, "MODE %s B\r\n", this->identity.nick);
 	    this->remote->write_buffer = buf;
