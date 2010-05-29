@@ -242,16 +242,35 @@ int prep_select(irc_multiplexer *this, fd_set *readfds) {
 	    current != NULL;
 	    current = current->next ) {
 
-	//TODO check to see if socket is still connected
+	//check to see if socket is still connected
+	int error = send(current->bufsock->fd, "", 0, MSG_NOSIGNAL);
+	if(error == -1) {
+	    fprintf(stderr, "NOTICE: Client with fd %d disconnected.\n", 
+		    current->bufsock->fd);
 
-	#ifdef DEBUG
-	//fprintf(stderr, "adding client fd to select(): %d\n", current->bufsock->fd);
-	#endif /* DEBUG */
-
-	//Locate highest fd for select()
-	if(nfds < current->bufsock->fd) nfds = current->bufsock->fd;
-	//Add client fd to listen sockets
-	FD_SET(current->bufsock->fd, readfds);
+	    for(client_socket *previous = this->clients; previous != NULL; previous = previous->next ) {
+		//Remove dead client socket
+		
+		if(previous == current) {
+		    //Node to delete is the head
+		    this->clients = current->next;
+		    free(current);
+		    break;
+		}
+		else if( previous->next == current) {
+		    //Node to delete is in the body
+		    previous->next = current->next;
+		    free(current);
+		    break;
+		}
+	    }
+	}
+	else {
+	    //Locate highest fd for select()
+	    if(nfds < current->bufsock->fd) nfds = current->bufsock->fd;
+	    //Add client fd to listen sockets
+	    FD_SET(current->bufsock->fd, readfds);
+	}
     }
 
     return nfds;
