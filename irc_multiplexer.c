@@ -242,6 +242,8 @@ int prep_select(irc_multiplexer *this, fd_set *readfds) {
 	    current != NULL;
 	    current = current->next ) {
 
+	//TODO check to see if socket is still connected
+
 	#ifdef DEBUG
 	//fprintf(stderr, "adding client fd to select(): %d\n", current->bufsock->fd);
 	#endif /* DEBUG */
@@ -308,26 +310,31 @@ void start_server(irc_multiplexer *this) {
 	    accept_client_socket(this);
 	}
 	else {
-	// else one of our clients sent a message
-	//TODO forward message from client to server
-	    for(client_socket *current = this->clients;
-		    current != NULL;
-		    current = current->next ) {
+	    //TODO forward message from client to server
+	    for(client_socket *current = this->clients; current != NULL; current = current->next ) {
+		//Locate the client socket that has written us a message
 
 		if(FD_ISSET(current->bufsock->fd, &readfds)) {
+		    //Current client fd is readable
+		    
+		    fprintf(stderr, "----------------------------------------\n");
 		    fprintf(stderr, "received message from client fd: %d\n", current->bufsock->fd);
+		    
+
+		    //Get client socket info
 		    int client_rcvbuf;
 		    unsigned int client_rcvbuf_len = sizeof(client_rcvbuf);
 		    getsockopt(current->bufsock->fd, SOL_SOCKET, SO_RCVBUF, &client_rcvbuf, &client_rcvbuf_len);
 
+		    //Receive message, print it, and discard. 
+		    //TODO actually act on client message
 		    char clientbuf[client_rcvbuf + 1];
 		    memset(clientbuf, 0, client_rcvbuf + 1);
 		    size_t received = recv(current->bufsock->fd, clientbuf, client_rcvbuf, 0);
 		    fprintf(stderr, "message was \"%s\" of size %lu\n", clientbuf, received);
-		    fprintf(stderr, "----------------------------------------\n");
 		}
 	    }
-	}
+	} 
     }
 }
 

@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 	    fprintf(stderr, "ERROR: dur wut\n");
 	}
 	else {
-	    fprintf(stdout, "---\nSent message %s of size %lu\n---\n", buf, sizeof(buf));
+	    fprintf(stdout, "\nSent message %s of size %lu\n---\n", buf, sizeof(buf));
 	}
     }
     fprintf(stdout, "Exiting.\n");
