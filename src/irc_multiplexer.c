@@ -252,12 +252,19 @@ int prep_select(irc_multiplexer *this, fd_set *readfds) {
 		
 		if(previous == current) {
 		    //Node to delete is the head
-		    this->clients = current->next;
+		    if(current->next == NULL) {
+			//We're deleting the last client socket
+			this->clients = NULL;
+		    }
+		    else {
+			this->clients = current->next;
+		    }
 		    free(current);
 		    break;
 		}
 		else if( previous->next == current) {
 		    //Node to delete is in the body
+		    fprintf(stderr, "Ehm, idunno\n");
 		    previous->next = current->next;
 		    free(current);
 		    break;
@@ -269,6 +276,11 @@ int prep_select(irc_multiplexer *this, fd_set *readfds) {
 	    if(nfds < current->bufsock->fd) nfds = current->bufsock->fd;
 	    //Add client fd to listen sockets
 	    FD_SET(current->bufsock->fd, readfds);
+	}
+
+	if(this->clients == NULL) {
+	    //Cleanup in case we just deleted a dead socket and have no more clients
+	    break;
 	}
     }
 
