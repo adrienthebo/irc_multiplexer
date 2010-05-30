@@ -40,7 +40,7 @@ int manage_read_buffer(buffered_socket *this, char *buf) {
 	// Current message contains the delimiter
 
 	size_t delimiter_offset = delimiter_ptr - buf;
-	size_t substr_len = delimiter_offset + strlen(this->delimiter);
+	size_t substr_len = delimiter_offset + strlen(this->delimiter) - 1;
 
 	if(this->read_buffer == NULL) {
 	    // No previous buffer, initialize one
