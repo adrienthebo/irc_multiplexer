@@ -158,7 +158,6 @@ int write_buffered_socket(buffered_socket *this) {
 int bufsock_is_connected(buffered_socket *this) {
     int error = send(this->fd, "", 0, MSG_NOSIGNAL);
     if(error == -1) {
-	fprintf(stderr, "HOLY FUCKING SHIT DISCONNECTED\n");
 	return 0;
     }
     else {

@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	fprintf(stdout, "Message received: \n\"%s\"\n---\n", buf);
 
 	memset(buf, 0, rcvbuf + 1);
-	strcpy(buf, "foo\r\n");
+	strcpy(buf, "ACK\r\n");
 
 	ssize_t sent = send(fd, buf, strlen(buf), 0);
 
