@@ -243,10 +243,8 @@ int prep_select(irc_multiplexer *this, fd_set *readfds) {
 	    current = current->next ) {
 
 	//check to see if socket is still connected
-	int error = send(current->bufsock->fd, "", 0, MSG_NOSIGNAL);
-	if(error == -1) {
-	    fprintf(stderr, "NOTICE: Client with fd %d disconnected.\n", 
-		    current->bufsock->fd);
+	if(bufsock_is_connected(current->bufsock) == 0) {
+	    fprintf(stderr, "NOTICE: Client with fd %d disconnected.\n", current->bufsock->fd);
 
 	    for(client_socket *previous = this->clients; previous != NULL; previous = previous->next ) {
 		//Remove dead client socket

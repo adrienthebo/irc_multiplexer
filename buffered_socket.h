@@ -37,4 +37,11 @@ int read_buffered_socket(buffered_socket *this);
  */
 int write_buffered_socket(buffered_socket *this);
 
+/*
+ * Checks to see if a buffered socket is still connected
+ *
+ * Returns 1 on connected, 0 on disconnected
+ */
+int bufsock_is_connected(buffered_socket *this);
+
 #endif /* BUFFERED_SOCKET_H */

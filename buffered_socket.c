@@ -68,6 +68,7 @@ int manage_read_buffer(buffered_socket *this, char *buf) {
 	    //Check to see if there's another delimiter in our excess string
 	    delimiter_ptr = strstr(excess_str, this->delimiter);
 	    if(delimiter_ptr != NULL) {
+		fprintf(stderr, "HOLY FUCKING SHIT, RECURSION!\n");
 		manage_read_buffer(this, excess_str);
 	    }
 	    else {
@@ -154,3 +155,13 @@ int write_buffered_socket(buffered_socket *this) {
     }
 }
 
+int bufsock_is_connected(buffered_socket *this) {
+    int error = send(this->fd, "", 0, MSG_NOSIGNAL);
+    if(error == -1) {
+	fprintf(stderr, "HOLY FUCKING SHIT DISCONNECTED\n");
+	return 0;
+    }
+    else {
+	return 1;
+    }   
+}
