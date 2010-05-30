@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 
 #include "buffered_socket.h"
 #include "irc_message.h"

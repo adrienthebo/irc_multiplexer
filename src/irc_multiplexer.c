@@ -2,6 +2,7 @@
  *
  * Implements an irc multiplexer
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
