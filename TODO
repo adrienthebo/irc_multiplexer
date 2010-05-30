@@ -1,0 +1,5 @@
+TODO
+
+- Add tests for easily testable stuff
+- Add forwarding of client messages to servers
+- Add stubs for simplifying client modules

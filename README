@@ -1,6 +1,32 @@
-= IRC multiplexer
+= IRC Multiplexer
 
-It slices, it dices, it allows asynchronous communication with an IRC
-server!
+Splitting your bits and splaying your bytes, this little gadget will allow
+you to to create easily pluggable, durable IRC bots.
 
-Documentation to be added when there is something to document.
+== About
+
+The goal is to create a persistent IRC bot that provides enough functionality
+to let you hang modules of any size off of sockets provided by the 
+multiplexer. Ostensibly, you should be able to attach full blown IRC clients
+to the system as well as simple little bots that do little, simultaneously.
+It should also add a modicum of insulation between modules, so that one error
+in one module doesn't wreck the entire system.
+
+It's currently under heavy development, but I suspect that nobody will notice.
+
+== Requirements
+
+I'll let you know when I have this figured out
+
+== Files
+
+There is currently madness and anarchy in the file structure
+
+== Bugs
+
+The name really really sucks.
+
+== Authors
+
+Adrien Thebo
+
